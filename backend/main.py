@@ -31,17 +31,31 @@ def _safe_content_disposition(disposition_type: str, filename: str) -> str:
     Uses RFC 5987 ``filename*`` parameter so that browsers can decode
     UTF-8 filenames while the ``filename`` fallback stays ASCII-only.
     """
-    ascii_name = "".join(
-        c for c in filename if c.isascii() and (c.isalnum() or c in " -_.")
-    ).strip() or "download"
+    ascii_name = (
+        "".join(
+            c for c in filename if c.isascii() and (c.isalnum() or c in " -_.")
+        ).strip()
+        or "download"
+    )
     utf8_name = quote(filename, safe="")
     return (
-        f'{disposition_type}; filename="{ascii_name}"; '
-        f"filename*=UTF-8''{utf8_name}"
+        f"{disposition_type}; filename=\"{ascii_name}\"; filename*=UTF-8''{utf8_name}"
     )
 
 
-from . import database, models, profiles, history, tts, transcribe, config, export_import, channels, stories, __version__
+from . import (
+    database,
+    models,
+    profiles,
+    history,
+    tts,
+    transcribe,
+    config,
+    export_import,
+    channels,
+    stories,
+    __version__,
+)
 from .database import get_db, Generation as DBGeneration, VoiceProfile as DBVoiceProfile
 from .utils.progress import get_progress_manager
 from .utils.tasks import get_task_manager
@@ -68,6 +82,7 @@ app.add_middleware(
 # ROOT & HEALTH ENDPOINTS
 # ============================================
 
+
 @app.get("/")
 async def root():
     """Root endpoint."""
@@ -77,6 +92,7 @@ async def root():
 @app.post("/shutdown")
 async def shutdown():
     """Gracefully shutdown the server."""
+
     async def shutdown_async():
         await asyncio.sleep(0.1)  # Give response time to send
         os.kill(os.getpid(), signal.SIGTERM)
@@ -97,14 +113,15 @@ async def health():
 
     # Check for GPU availability (CUDA, MPS, Intel Arc XPU, or DirectML)
     has_cuda = torch.cuda.is_available()
-    has_mps = hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
+    has_mps = hasattr(torch.backends, "mps") and torch.backends.mps.is_available()
 
     # Intel Arc / Intel Xe via intel-extension-for-pytorch (IPEX)
     has_xpu = False
     xpu_name = None
     try:
         import intel_extension_for_pytorch as ipex  # noqa: F401
-        if hasattr(torch, 'xpu') and torch.xpu.is_available():
+
+        if hasattr(torch, "xpu") and torch.xpu.is_available():
             has_xpu = True
             try:
                 xpu_name = torch.xpu.get_device_name(0)
@@ -118,6 +135,7 @@ async def health():
     directml_name = None
     try:
         import torch_directml
+
         if torch_directml.device_count() > 0:
             has_directml = True
             try:
@@ -127,7 +145,9 @@ async def health():
     except ImportError:
         pass
 
-    gpu_available = has_cuda or has_mps or has_xpu or has_directml or backend_type == "mlx"
+    gpu_available = (
+        has_cuda or has_mps or has_xpu or has_directml or backend_type == "mlx"
+    )
 
     gpu_type = None
     if has_cuda:
@@ -144,7 +164,7 @@ async def health():
     vram_used = None
     if has_cuda:
         vram_used = torch.cuda.memory_allocated() / 1024 / 1024  # MB
-    
+
     # Check if model is loaded - use the same logic as model status endpoint
     model_loaded = False
     model_size = None
@@ -154,15 +174,15 @@ async def health():
             model_loaded = True
             # Get the actual loaded model size
             # Check _current_model_size first (more reliable for actually loaded models)
-            model_size = getattr(tts_model, '_current_model_size', None)
+            model_size = getattr(tts_model, "_current_model_size", None)
             if not model_size:
                 # Fallback to model_size attribute (which should be set when model loads)
-                model_size = getattr(tts_model, 'model_size', None)
+                model_size = getattr(tts_model, "model_size", None)
     except Exception:
         # If there's an error checking, assume not loaded
         model_loaded = False
         model_size = None
-    
+
     # Check if default model is downloaded (cached)
     model_downloaded = None
     try:
@@ -172,10 +192,11 @@ async def health():
             default_model_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
         else:
             default_model_id = "Qwen/Qwen3-TTS-12Hz-1.7B-Base"
-        
+
         # Method 1: Try scan_cache_dir if available
         try:
             from huggingface_hub import scan_cache_dir
+
             cache_info = scan_cache_dir()
             for repo in cache_info.repos:
                 if repo.repo_id == default_model_id:
@@ -184,19 +205,21 @@ async def health():
         except (ImportError, Exception):
             # Method 2: Check cache directory (using HuggingFace's OS-specific cache location)
             cache_dir = hf_constants.HF_HUB_CACHE
-            repo_cache = Path(cache_dir) / ("models--" + default_model_id.replace("/", "--"))
+            repo_cache = Path(cache_dir) / (
+                "models--" + default_model_id.replace("/", "--")
+            )
             if repo_cache.exists():
                 has_model_files = (
-                    any(repo_cache.rglob("*.bin")) or
-                    any(repo_cache.rglob("*.safetensors")) or
-                    any(repo_cache.rglob("*.pt")) or
-                    any(repo_cache.rglob("*.pth")) or
-                    any(repo_cache.rglob("*.npz"))  # MLX models may use npz
+                    any(repo_cache.rglob("*.bin"))
+                    or any(repo_cache.rglob("*.safetensors"))
+                    or any(repo_cache.rglob("*.pt"))
+                    or any(repo_cache.rglob("*.pth"))
+                    or any(repo_cache.rglob("*.npz"))  # MLX models may use npz
                 )
                 model_downloaded = has_model_files
     except Exception:
         pass
-    
+
     return models.HealthResponse(
         status="healthy",
         model_loaded=model_loaded,
@@ -213,6 +236,7 @@ async def health():
 # VOICE PROFILE ENDPOINTS
 # ============================================
 
+
 @app.post("/profiles", response_model=models.VoiceProfileResponse)
 async def create_profile(
     data: models.VoiceProfileCreate,
@@ -227,8 +251,14 @@ async def create_profile(
 
 @app.get("/profiles", response_model=List[models.VoiceProfileResponse])
 async def list_profiles(db: Session = Depends(get_db)):
-    """List all voice profiles."""
+    """List all voice profiles (excludes soft-deleted)."""
     return await profiles.list_profiles(db)
+
+
+@app.get("/profiles/deleted", response_model=List[models.VoiceProfileResponse])
+async def list_deleted_profiles(db: Session = Depends(get_db)):
+    """List all soft-deleted voice profiles."""
+    return await profiles.list_profiles(db, include_deleted=True)
 
 
 @app.post("/profiles/import", response_model=models.VoiceProfileResponse)
@@ -239,16 +269,16 @@ async def import_profile(
     """Import a voice profile from a ZIP archive."""
     # Validate file size (max 100MB)
     MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
-    
+
     # Read file content
     content = await file.read()
-    
+
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)}MB"
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)}MB",
         )
-    
+
     try:
         profile = await export_import.import_profile_from_zip(content, db)
         return profile
@@ -286,13 +316,41 @@ async def update_profile(
 @app.delete("/profiles/{profile_id}")
 async def delete_profile(
     profile_id: str,
+    permanent: bool = False,
     db: Session = Depends(get_db),
 ):
-    """Delete a voice profile."""
-    success = await profiles.delete_profile(profile_id, db)
+    """
+    Delete a voice profile.
+
+    Args:
+        profile_id: Profile ID to delete
+        permanent: If True, permanently delete. If False (default), soft delete (archive).
+    """
+    success = await profiles.delete_profile(profile_id, db, permanent=permanent)
     if not success:
         raise HTTPException(status_code=404, detail="Profile not found")
-    return {"message": "Profile deleted successfully"}
+    return {
+        "message": "Profile deleted permanently"
+        if permanent
+        else "Profile archived (soft delete)"
+    }
+
+
+@app.post("/profiles/{profile_id}/restore")
+async def restore_profile(
+    profile_id: str,
+    db: Session = Depends(get_db),
+):
+    """
+    Restore a soft-deleted voice profile.
+
+    Args:
+        profile_id: Profile ID to restore
+    """
+    success = await profiles.restore_profile(profile_id, db)
+    if not success:
+        raise HTTPException(status_code=404, detail="Profile not found or not deleted")
+    return {"message": "Profile restored successfully"}
 
 
 @app.post("/profiles/{profile_id}/samples", response_model=models.ProfileSampleResponse)
@@ -305,9 +363,18 @@ async def add_profile_sample(
     """Add a sample to a voice profile."""
     # Preserve the uploaded file's extension so librosa can detect format correctly.
     # Defaulting to .wav was causing soundfile to reject MP3/WebM content as invalid WAV.
-    _allowed_audio_exts = {'.wav', '.mp3', '.m4a', '.ogg', '.flac', '.aac', '.webm', '.opus'}
-    _uploaded_ext = Path(file.filename or '').suffix.lower()
-    file_suffix = _uploaded_ext if _uploaded_ext in _allowed_audio_exts else '.wav'
+    _allowed_audio_exts = {
+        ".wav",
+        ".mp3",
+        ".m4a",
+        ".ogg",
+        ".flac",
+        ".aac",
+        ".webm",
+        ".opus",
+    }
+    _uploaded_ext = Path(file.filename or "").suffix.lower()
+    file_suffix = _uploaded_ext if _uploaded_ext in _allowed_audio_exts else ".wav"
 
     with tempfile.NamedTemporaryFile(suffix=file_suffix, delete=False) as tmp:
         content = await file.read()
@@ -325,13 +392,17 @@ async def add_profile_sample(
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to process audio file: {str(e)}")
+        raise HTTPException(
+            status_code=500, detail=f"Failed to process audio file: {str(e)}"
+        )
     finally:
         # Clean up temp file
         Path(tmp_path).unlink(missing_ok=True)
 
 
-@app.get("/profiles/{profile_id}/samples", response_model=List[models.ProfileSampleResponse])
+@app.get(
+    "/profiles/{profile_id}/samples", response_model=List[models.ProfileSampleResponse]
+)
 async def get_profile_samples(
     profile_id: str,
     db: Session = Depends(get_db),
@@ -373,7 +444,9 @@ async def upload_profile_avatar(
 ):
     """Upload or update avatar image for a profile."""
     # Save uploaded file to temp location
-    with tempfile.NamedTemporaryFile(delete=False, suffix=Path(file.filename).suffix) as tmp:
+    with tempfile.NamedTemporaryFile(
+        delete=False, suffix=Path(file.filename).suffix
+    ) as tmp:
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
@@ -416,7 +489,9 @@ async def delete_profile_avatar(
     """Delete avatar image for a profile."""
     success = await profiles.delete_avatar(profile_id, db)
     if not success:
-        raise HTTPException(status_code=404, detail="Profile not found or no avatar to delete")
+        raise HTTPException(
+            status_code=404, detail="Profile not found or no avatar to delete"
+        )
     return {"message": "Avatar deleted successfully"}
 
 
@@ -431,23 +506,25 @@ async def export_profile(
         profile = await profiles.get_profile(profile_id, db)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
-        
+
         # Export to ZIP
         zip_bytes = export_import.export_profile_to_zip(profile_id, db)
-        
+
         # Create safe filename
-        safe_name = "".join(c for c in profile.name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = "".join(
+            c for c in profile.name if c.isalnum() or c in (" ", "-", "_")
+        ).strip()
         if not safe_name:
             safe_name = "profile"
         filename = f"profile-{safe_name}.voicebox.zip"
-        
+
         # Return as streaming response
         return StreamingResponse(
             io.BytesIO(zip_bytes),
             media_type="application/zip",
             headers={
                 "Content-Disposition": _safe_content_disposition("attachment", filename)
-            }
+            },
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -458,6 +535,7 @@ async def export_profile(
 # ============================================
 # AUDIO CHANNEL ENDPOINTS
 # ============================================
+
 
 @app.get("/channels", response_model=List[models.AudioChannelResponse])
 async def list_channels(db: Session = Depends(get_db)):
@@ -578,6 +656,7 @@ async def set_profile_channels(
 # GENERATION ENDPOINTS
 # ============================================
 
+
 @app.post("/generate", response_model=models.GenerationResponse)
 async def generate_speech(
     data: models.GenerationRequest,
@@ -586,7 +665,7 @@ async def generate_speech(
     """Generate speech from text using a voice profile."""
     task_manager = get_task_manager()
     generation_id = str(uuid.uuid4())
-    
+
     try:
         # Start tracking generation
         task_manager.start_generation(
@@ -594,12 +673,12 @@ async def generate_speech(
             profile_id=data.profile_id,
             text=data.text,
         )
-        
+
         # Get profile
         profile = await profiles.get_profile(data.profile_id, db)
         if not profile:
             raise HTTPException(status_code=404, detail="Profile not found")
-        
+
         # Generate audio
 
         # Resolve model size and load the correct model FIRST.
@@ -659,6 +738,7 @@ async def generate_speech(
         audio_path = config.get_generations_dir() / f"{generation_id}.wav"
 
         from .utils.audio import save_audio
+
         save_audio(audio, str(audio_path), sample_rate)
 
         # Create history entry
@@ -672,12 +752,12 @@ async def generate_speech(
             db=db,
             instruct=data.instruct,
         )
-        
+
         # Mark generation as complete
         task_manager.complete_generation(generation_id)
-        
+
         return generation
-        
+
     except ValueError as e:
         task_manager.complete_generation(generation_id)
         raise HTTPException(status_code=400, detail=str(e))
@@ -743,6 +823,7 @@ async def stream_speech(
 # HISTORY ENDPOINTS
 # ============================================
 
+
 @app.get("/history", response_model=models.HistoryListResponse)
 async def list_history(
     profile_id: Optional[str] = None,
@@ -775,16 +856,16 @@ async def import_generation(
     """Import a generation from a ZIP archive."""
     # Validate file size (max 50MB)
     MAX_FILE_SIZE = 50 * 1024 * 1024  # 50MB
-    
+
     # Read file content
     content = await file.read()
-    
+
     if len(content) > MAX_FILE_SIZE:
         raise HTTPException(
             status_code=400,
-            detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)}MB"
+            detail=f"File too large. Maximum size is {MAX_FILE_SIZE / (1024 * 1024)}MB",
         )
-    
+
     try:
         result = await export_import.import_generation_from_zip(content, db)
         return result
@@ -801,19 +882,16 @@ async def get_generation(
 ):
     """Get a generation by ID."""
     # Get generation with profile name
-    result = db.query(
-        DBGeneration,
-        DBVoiceProfile.name.label('profile_name')
-    ).join(
-        DBVoiceProfile,
-        DBGeneration.profile_id == DBVoiceProfile.id
-    ).filter(
-        DBGeneration.id == generation_id
-    ).first()
-    
+    result = (
+        db.query(DBGeneration, DBVoiceProfile.name.label("profile_name"))
+        .join(DBVoiceProfile, DBGeneration.profile_id == DBVoiceProfile.id)
+        .filter(DBGeneration.id == generation_id)
+        .first()
+    )
+
     if not result:
         raise HTTPException(status_code=404, detail="Generation not found")
-    
+
     gen, profile_name = result
     return models.HistoryResponse(
         id=gen.id,
@@ -852,23 +930,25 @@ async def export_generation(
         generation = db.query(DBGeneration).filter_by(id=generation_id).first()
         if not generation:
             raise HTTPException(status_code=404, detail="Generation not found")
-        
+
         # Export to ZIP
         zip_bytes = export_import.export_generation_to_zip(generation_id, db)
-        
+
         # Create safe filename from text
-        safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_text = "".join(
+            c for c in generation.text[:30] if c.isalnum() or c in (" ", "-", "_")
+        ).strip()
         if not safe_text:
             safe_text = "generation"
         filename = f"generation-{safe_text}.voicebox.zip"
-        
+
         # Return as streaming response
         return StreamingResponse(
             io.BytesIO(zip_bytes),
             media_type="application/zip",
             headers={
                 "Content-Disposition": _safe_content_disposition("attachment", filename)
-            }
+            },
         )
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -885,29 +965,32 @@ async def export_generation_audio(
     generation = db.query(DBGeneration).filter_by(id=generation_id).first()
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
-    
+
     audio_path = Path(generation.audio_path)
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
-    
+
     # Create safe filename from text
-    safe_text = "".join(c for c in generation.text[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
+    safe_text = "".join(
+        c for c in generation.text[:30] if c.isalnum() or c in (" ", "-", "_")
+    ).strip()
     if not safe_text:
         safe_text = "generation"
     filename = f"{safe_text}.wav"
-    
+
     return FileResponse(
         audio_path,
         media_type="audio/wav",
         headers={
             "Content-Disposition": _safe_content_disposition("attachment", filename)
-        }
+        },
     )
 
 
 # ============================================
 # TRANSCRIPTION ENDPOINTS
 # ============================================
+
 
 @app.post("/transcribe", response_model=models.TranscriptionResponse)
 async def transcribe_audio(
@@ -920,13 +1003,14 @@ async def transcribe_audio(
         content = await file.read()
         tmp.write(content)
         tmp_path = tmp.name
-    
+
     try:
         # Get audio duration
         from .utils.audio import load_audio
+
         audio, sr = load_audio(tmp_path)
         duration = len(audio) / sr
-        
+
         # Transcribe
         whisper_model = transcribe.get_whisper_model()
 
@@ -936,7 +1020,10 @@ async def transcribe_audio(
 
         # Check if model is cached
         from huggingface_hub import constants as hf_constants
-        repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
+
+        repo_cache = Path(hf_constants.HF_HUB_CACHE) / (
+            "models--" + model_name.replace("/", "--")
+        )
         if not repo_cache.exists():
             # Start download in background
             progress_model_name = f"whisper-{model_size}"
@@ -956,17 +1043,17 @@ async def transcribe_audio(
                 detail={
                     "message": f"Whisper model {model_size} is being downloaded. Please wait and try again.",
                     "model_name": progress_model_name,
-                    "downloading": True
-                }
+                    "downloading": True,
+                },
             )
 
         text = await whisper_model.transcribe(tmp_path, language)
-        
+
         return models.TranscriptionResponse(
             text=text,
             duration=duration,
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
     finally:
@@ -977,6 +1064,7 @@ async def transcribe_audio(
 # ============================================
 # STORY ENDPOINTS
 # ============================================
+
 
 @app.get("/stories", response_model=List[models.StoryResponse])
 async def list_stories(db: Session = Depends(get_db)):
@@ -1072,7 +1160,9 @@ async def update_story_item_times(
     return {"message": "Item timecodes updated successfully"}
 
 
-@app.put("/stories/{story_id}/items/reorder", response_model=List[models.StoryItemDetail])
+@app.put(
+    "/stories/{story_id}/items/reorder", response_model=List[models.StoryItemDetail]
+)
 async def reorder_story_items(
     story_id: str,
     data: models.StoryItemReorder,
@@ -1081,11 +1171,16 @@ async def reorder_story_items(
     """Reorder story items and recalculate timecodes."""
     items = await stories.reorder_story_items(story_id, data.generation_ids, db)
     if items is None:
-        raise HTTPException(status_code=400, detail="Invalid reorder request - ensure all generation IDs belong to this story")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid reorder request - ensure all generation IDs belong to this story",
+        )
     return items
 
 
-@app.put("/stories/{story_id}/items/{item_id}/move", response_model=models.StoryItemDetail)
+@app.put(
+    "/stories/{story_id}/items/{item_id}/move", response_model=models.StoryItemDetail
+)
 async def move_story_item(
     story_id: str,
     item_id: str,
@@ -1099,7 +1194,9 @@ async def move_story_item(
     return item
 
 
-@app.put("/stories/{story_id}/items/{item_id}/trim", response_model=models.StoryItemDetail)
+@app.put(
+    "/stories/{story_id}/items/{item_id}/trim", response_model=models.StoryItemDetail
+)
 async def trim_story_item(
     story_id: str,
     item_id: str,
@@ -1109,11 +1206,16 @@ async def trim_story_item(
     """Trim a story item (update trim_start_ms and trim_end_ms)."""
     item = await stories.trim_story_item(story_id, item_id, data, db)
     if item is None:
-        raise HTTPException(status_code=404, detail="Story item not found or invalid trim values")
+        raise HTTPException(
+            status_code=404, detail="Story item not found or invalid trim values"
+        )
     return item
 
 
-@app.post("/stories/{story_id}/items/{item_id}/split", response_model=List[models.StoryItemDetail])
+@app.post(
+    "/stories/{story_id}/items/{item_id}/split",
+    response_model=List[models.StoryItemDetail],
+)
 async def split_story_item(
     story_id: str,
     item_id: str,
@@ -1123,11 +1225,16 @@ async def split_story_item(
     """Split a story item at a given time, creating two clips."""
     items = await stories.split_story_item(story_id, item_id, data, db)
     if items is None:
-        raise HTTPException(status_code=404, detail="Story item not found or invalid split point")
+        raise HTTPException(
+            status_code=404, detail="Story item not found or invalid split point"
+        )
     return items
 
 
-@app.post("/stories/{story_id}/items/{item_id}/duplicate", response_model=models.StoryItemDetail)
+@app.post(
+    "/stories/{story_id}/items/{item_id}/duplicate",
+    response_model=models.StoryItemDetail,
+)
 async def duplicate_story_item(
     story_id: str,
     item_id: str,
@@ -1151,25 +1258,27 @@ async def export_story_audio(
         story = db.query(database.Story).filter_by(id=story_id).first()
         if not story:
             raise HTTPException(status_code=404, detail="Story not found")
-        
+
         # Export audio
         audio_bytes = await stories.export_story_audio(story_id, db)
         if not audio_bytes:
             raise HTTPException(status_code=400, detail="Story has no audio items")
-        
+
         # Create safe filename
-        safe_name = "".join(c for c in story.name if c.isalnum() or c in (' ', '-', '_')).strip()
+        safe_name = "".join(
+            c for c in story.name if c.isalnum() or c in (" ", "-", "_")
+        ).strip()
         if not safe_name:
             safe_name = "story"
         filename = f"{safe_name}.wav"
-        
+
         # Return as streaming response
         return StreamingResponse(
             io.BytesIO(audio_bytes),
             media_type="audio/wav",
             headers={
                 "Content-Disposition": _safe_content_disposition("attachment", filename)
-            }
+            },
         )
     except HTTPException:
         raise
@@ -1181,17 +1290,18 @@ async def export_story_audio(
 # FILE SERVING
 # ============================================
 
+
 @app.get("/audio/{generation_id}")
 async def get_audio(generation_id: str, db: Session = Depends(get_db)):
     """Serve generated audio file."""
     generation = await history.get_generation(generation_id, db)
     if not generation:
         raise HTTPException(status_code=404, detail="Generation not found")
-    
+
     audio_path = Path(generation.audio_path)
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
-    
+
     return FileResponse(
         audio_path,
         media_type="audio/wav",
@@ -1203,15 +1313,15 @@ async def get_audio(generation_id: str, db: Session = Depends(get_db)):
 async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
     """Serve profile sample audio file."""
     from .database import ProfileSample as DBProfileSample
-    
+
     sample = db.query(DBProfileSample).filter_by(id=sample_id).first()
     if not sample:
         raise HTTPException(status_code=404, detail="Sample not found")
-    
+
     audio_path = Path(sample.audio_path)
     if not audio_path.exists():
         raise HTTPException(status_code=404, detail="Audio file not found")
-    
+
     return FileResponse(
         audio_path,
         media_type="audio/wav",
@@ -1222,6 +1332,7 @@ async def get_sample_audio(sample_id: str, db: Session = Depends(get_db)):
 # ============================================
 # MODEL MANAGEMENT
 # ============================================
+
 
 @app.post("/models/load")
 async def load_model(model_size: str = "1.7B"):
@@ -1248,14 +1359,14 @@ async def unload_model():
 async def get_model_progress(model_name: str):
     """Get model download progress via Server-Sent Events."""
     from fastapi.responses import StreamingResponse
-    
+
     progress_manager = get_progress_manager()
-    
+
     async def event_generator():
         """Generate SSE events for progress updates."""
         async for event in progress_manager.subscribe(model_name):
             yield event
-    
+
     return StreamingResponse(
         event_generator(),
         media_type="text/event-stream",
@@ -1272,36 +1383,45 @@ async def get_model_status():
     """Get status of all available models."""
     from huggingface_hub import constants as hf_constants
     from pathlib import Path
-    
+
     backend_type = get_backend_type()
     task_manager = get_task_manager()
-    
+
     # Get set of currently downloading model names
-    active_download_names = {task.model_name for task in task_manager.get_active_downloads()}
-    
+    active_download_names = {
+        task.model_name for task in task_manager.get_active_downloads()
+    }
+
     # Try to import scan_cache_dir (might not be available in older versions)
     try:
         from huggingface_hub import scan_cache_dir
+
         use_scan_cache = True
     except ImportError:
         use_scan_cache = False
-    
+
     def check_tts_loaded(model_size: str):
         """Check if TTS model is loaded with specific size."""
         try:
             tts_model = tts.get_tts_model()
-            return tts_model.is_loaded() and getattr(tts_model, 'model_size', None) == model_size
+            return (
+                tts_model.is_loaded()
+                and getattr(tts_model, "model_size", None) == model_size
+            )
         except Exception:
             return False
-    
+
     def check_whisper_loaded(model_size: str):
         """Check if Whisper model is loaded with specific size."""
         try:
             whisper_model = transcribe.get_whisper_model()
-            return whisper_model.is_loaded() and getattr(whisper_model, 'model_size', None) == model_size
+            return (
+                whisper_model.is_loaded()
+                and getattr(whisper_model, "model_size", None) == model_size
+            )
         except Exception:
             return False
-    
+
     # Use backend-specific model IDs
     if backend_type == "mlx":
         tts_1_7b_id = "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-bf16"
@@ -1318,7 +1438,7 @@ async def get_model_status():
         whisper_small_id = "openai/whisper-small"
         whisper_medium_id = "openai/whisper-medium"
         whisper_large_id = "openai/whisper-large"
-    
+
     model_configs = [
         {
             "model_name": "qwen-tts-1.7B",
@@ -1363,14 +1483,18 @@ async def get_model_status():
             "check_loaded": lambda: check_whisper_loaded("large"),
         },
     ]
-    
+
     # Build a mapping of model_name -> hf_repo_id so we can check if shared repos are downloading
     model_to_repo = {cfg["model_name"]: cfg["hf_repo_id"] for cfg in model_configs}
-    
+
     # Get the set of hf_repo_ids that are currently being downloaded
     # This handles the case where multiple models share the same repo (e.g., 0.6B and 1.7B on MLX)
-    active_download_repos = {model_to_repo.get(name) for name in active_download_names if name in model_to_repo}
-    
+    active_download_repos = {
+        model_to_repo.get(name)
+        for name in active_download_names
+        if name in model_to_repo
+    }
+
     # Get HuggingFace cache info (if available)
     cache_info = None
     if use_scan_cache:
@@ -1379,15 +1503,15 @@ async def get_model_status():
         except Exception:
             # Function failed, continue without it
             pass
-    
+
     statuses = []
-    
+
     for config in model_configs:
         try:
             downloaded = False
             size_mb = None
             loaded = False
-            
+
             # Method 1: Try using scan_cache_dir if available
             if cache_info:
                 repo_id = config["hf_repo_id"]
@@ -1399,44 +1523,56 @@ async def get_model_status():
                         for rev in repo.revisions:
                             for f in rev.files:
                                 fname = f.file_name.lower()
-                                if fname.endswith(('.safetensors', '.bin', '.pt', '.pth', '.npz')):
+                                if fname.endswith(
+                                    (".safetensors", ".bin", ".pt", ".pth", ".npz")
+                                ):
                                     has_model_weights = True
                                     break
                             if has_model_weights:
                                 break
-                        
+
                         # Also check for .incomplete files in blobs directory (downloads in progress)
                         has_incomplete = False
                         try:
                             cache_dir = hf_constants.HF_HUB_CACHE
-                            blobs_dir = Path(cache_dir) / ("models--" + repo_id.replace("/", "--")) / "blobs"
+                            blobs_dir = (
+                                Path(cache_dir)
+                                / ("models--" + repo_id.replace("/", "--"))
+                                / "blobs"
+                            )
                             if blobs_dir.exists():
                                 has_incomplete = any(blobs_dir.glob("*.incomplete"))
                         except Exception:
                             pass
-                        
+
                         # Only mark as downloaded if we have model weights AND no incomplete files
                         if has_model_weights and not has_incomplete:
                             downloaded = True
                             # Calculate size from cache info
                             try:
-                                total_size = sum(revision.size_on_disk for revision in repo.revisions)
+                                total_size = sum(
+                                    revision.size_on_disk for revision in repo.revisions
+                                )
                                 size_mb = total_size / (1024 * 1024)
                             except Exception:
                                 pass
                         break
-            
+
             # Method 2: Fallback to checking cache directory directly (using HuggingFace's OS-specific cache location)
             if not downloaded:
                 try:
                     cache_dir = hf_constants.HF_HUB_CACHE
-                    repo_cache = Path(cache_dir) / ("models--" + config["hf_repo_id"].replace("/", "--"))
-                    
+                    repo_cache = Path(cache_dir) / (
+                        "models--" + config["hf_repo_id"].replace("/", "--")
+                    )
+
                     if repo_cache.exists():
                         # Check for .incomplete files - if any exist, download is still in progress
                         blobs_dir = repo_cache / "blobs"
-                        has_incomplete = blobs_dir.exists() and any(blobs_dir.glob("*.incomplete"))
-                        
+                        has_incomplete = blobs_dir.exists() and any(
+                            blobs_dir.glob("*.incomplete")
+                        )
+
                         if not has_incomplete:
                             # Check for actual model weight files (not just index files)
                             # in the snapshots directory (symlinks to completed blobs)
@@ -1444,71 +1580,77 @@ async def get_model_status():
                             has_model_files = False
                             if snapshots_dir.exists():
                                 has_model_files = (
-                                    any(snapshots_dir.rglob("*.bin")) or
-                                    any(snapshots_dir.rglob("*.safetensors")) or
-                                    any(snapshots_dir.rglob("*.pt")) or
-                                    any(snapshots_dir.rglob("*.pth")) or
-                                    any(snapshots_dir.rglob("*.npz"))
+                                    any(snapshots_dir.rglob("*.bin"))
+                                    or any(snapshots_dir.rglob("*.safetensors"))
+                                    or any(snapshots_dir.rglob("*.pt"))
+                                    or any(snapshots_dir.rglob("*.pth"))
+                                    or any(snapshots_dir.rglob("*.npz"))
                                 )
-                            
+
                             if has_model_files:
                                 downloaded = True
                                 # Calculate size (exclude .incomplete files)
                                 try:
                                     total_size = sum(
-                                        f.stat().st_size for f in repo_cache.rglob("*") 
-                                        if f.is_file() and not f.name.endswith('.incomplete')
+                                        f.stat().st_size
+                                        for f in repo_cache.rglob("*")
+                                        if f.is_file()
+                                        and not f.name.endswith(".incomplete")
                                     )
                                     size_mb = total_size / (1024 * 1024)
                                 except Exception:
                                     pass
                 except Exception:
                     pass
-            
+
             # Method 3 removed - checking for config.json is too lenient
             # Methods 1 and 2 properly verify that model weight files exist
-            
+
             # Check if loaded in memory
             try:
                 loaded = config["check_loaded"]()
             except Exception:
                 loaded = False
-            
+
             # Check if this model (or its shared repo) is currently being downloaded
             is_downloading = config["hf_repo_id"] in active_download_repos
-            
+
             # If downloading, don't report as downloaded (partial files exist)
             if is_downloading:
                 downloaded = False
                 size_mb = None  # Don't show partial size during download
-            
-            statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
-                downloaded=downloaded,
-                downloading=is_downloading,
-                size_mb=size_mb,
-                loaded=loaded,
-            ))
+
+            statuses.append(
+                models.ModelStatus(
+                    model_name=config["model_name"],
+                    display_name=config["display_name"],
+                    downloaded=downloaded,
+                    downloading=is_downloading,
+                    size_mb=size_mb,
+                    loaded=loaded,
+                )
+            )
         except Exception as e:
             # If check fails, try to at least check if loaded
             try:
                 loaded = config["check_loaded"]()
             except Exception:
                 loaded = False
-            
+
             # Check if this model (or its shared repo) is currently being downloaded
             is_downloading = config["hf_repo_id"] in active_download_repos
-            
-            statuses.append(models.ModelStatus(
-                model_name=config["model_name"],
-                display_name=config["display_name"],
-                downloaded=False,  # Assume not downloaded if check failed
-                downloading=is_downloading,
-                size_mb=None,
-                loaded=loaded,
-            ))
-    
+
+            statuses.append(
+                models.ModelStatus(
+                    model_name=config["model_name"],
+                    display_name=config["display_name"],
+                    downloaded=False,  # Assume not downloaded if check failed
+                    downloading=is_downloading,
+                    size_mb=None,
+                    loaded=loaded,
+                )
+            )
+
     return models.ModelStatusListResponse(models=statuses)
 
 
@@ -1516,10 +1658,10 @@ async def get_model_status():
 async def trigger_model_download(request: models.ModelDownloadRequest):
     """Trigger download of a specific model."""
     import asyncio
-    
+
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
-    
+
     model_configs = {
         "qwen-tts-1.7B": {
             "model_size": "1.7B",
@@ -1546,12 +1688,14 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
             "load_func": lambda: transcribe.get_whisper_model().load_model("large"),
         },
     }
-    
+
     if request.model_name not in model_configs:
-        raise HTTPException(status_code=400, detail=f"Unknown model: {request.model_name}")
-    
+        raise HTTPException(
+            status_code=400, detail=f"Unknown model: {request.model_name}"
+        )
+
     config = model_configs[request.model_name]
-    
+
     async def download_in_background():
         """Download model in background without blocking the HTTP request."""
         try:
@@ -1566,7 +1710,7 @@ async def trigger_model_download(request: models.ModelDownloadRequest):
 
     # Start tracking download
     task_manager.start_download(request.model_name)
-    
+
     # Initialize progress state so SSE endpoint has initial data to send.
     # This fixes a race condition where the frontend connects to SSE before
     # any progress callbacks have fired (especially for large models like Qwen
@@ -1592,7 +1736,7 @@ async def delete_model(model_name: str):
     import shutil
     import os
     from huggingface_hub import constants as hf_constants
-    
+
     # Map model names to HuggingFace repo IDs
     model_configs = {
         "qwen-tts-1.7B": {
@@ -1626,13 +1770,13 @@ async def delete_model(model_name: str):
             "model_type": "whisper",
         },
     }
-    
+
     if model_name not in model_configs:
         raise HTTPException(status_code=400, detail=f"Unknown model: {model_name}")
-    
+
     config = model_configs[model_name]
     hf_repo_id = config["hf_repo_id"]
-    
+
     try:
         # Check if model is loaded and unload it first
         if config["model_type"] == "tts":
@@ -1641,28 +1785,33 @@ async def delete_model(model_name: str):
                 tts.unload_tts_model()
         elif config["model_type"] == "whisper":
             whisper_model = transcribe.get_whisper_model()
-            if whisper_model.is_loaded() and whisper_model.model_size == config["model_size"]:
+            if (
+                whisper_model.is_loaded()
+                and whisper_model.model_size == config["model_size"]
+            ):
                 transcribe.unload_whisper_model()
-        
+
         # Find and delete the cache directory (using HuggingFace's OS-specific cache location)
         cache_dir = hf_constants.HF_HUB_CACHE
         repo_cache_dir = Path(cache_dir) / ("models--" + hf_repo_id.replace("/", "--"))
-        
+
         # Check if the cache directory exists
         if not repo_cache_dir.exists():
-            raise HTTPException(status_code=404, detail=f"Model {model_name} not found in cache")
-        
+            raise HTTPException(
+                status_code=404, detail=f"Model {model_name} not found in cache"
+            )
+
         # Delete the entire cache directory for this model
         try:
             shutil.rmtree(repo_cache_dir)
         except OSError as e:
             raise HTTPException(
                 status_code=500,
-                detail=f"Failed to delete model cache directory: {str(e)}"
+                detail=f"Failed to delete model cache directory: {str(e)}",
             )
-        
+
         return {"message": f"Model {model_name} deleted successfully"}
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -1686,62 +1835,71 @@ async def clear_cache():
 # TASK MANAGEMENT
 # ============================================
 
+
 @app.get("/tasks/active", response_model=models.ActiveTasksResponse)
 async def get_active_tasks():
     """Return all currently active downloads and generations."""
     task_manager = get_task_manager()
     progress_manager = get_progress_manager()
-    
+
     # Get active downloads from both task manager and progress manager
     # Task manager tracks which downloads are active
     # Progress manager has the actual progress data
     active_downloads = []
     task_manager_downloads = task_manager.get_active_downloads()
     progress_active = progress_manager.get_all_active()
-    
+
     # Combine data from both sources
     download_map = {task.model_name: task for task in task_manager_downloads}
     progress_map = {p["model_name"]: p for p in progress_active}
-    
+
     # Create unified list
     all_model_names = set(download_map.keys()) | set(progress_map.keys())
     for model_name in all_model_names:
         task = download_map.get(model_name)
         progress = progress_map.get(model_name)
-        
+
         if task:
-            active_downloads.append(models.ActiveDownloadTask(
-                model_name=model_name,
-                status=task.status,
-                started_at=task.started_at,
-            ))
+            active_downloads.append(
+                models.ActiveDownloadTask(
+                    model_name=model_name,
+                    status=task.status,
+                    started_at=task.started_at,
+                )
+            )
         elif progress:
             # Progress exists but no task - create from progress data
             timestamp_str = progress.get("timestamp")
             if timestamp_str:
                 try:
-                    started_at = datetime.fromisoformat(timestamp_str.replace('Z', '+00:00'))
+                    started_at = datetime.fromisoformat(
+                        timestamp_str.replace("Z", "+00:00")
+                    )
                 except (ValueError, AttributeError):
                     started_at = datetime.utcnow()
             else:
                 started_at = datetime.utcnow()
-            
-            active_downloads.append(models.ActiveDownloadTask(
-                model_name=model_name,
-                status=progress.get("status", "downloading"),
-                started_at=started_at,
-            ))
-    
+
+            active_downloads.append(
+                models.ActiveDownloadTask(
+                    model_name=model_name,
+                    status=progress.get("status", "downloading"),
+                    started_at=started_at,
+                )
+            )
+
     # Get active generations
     active_generations = []
     for gen_task in task_manager.get_active_generations():
-        active_generations.append(models.ActiveGenerationTask(
-            task_id=gen_task.task_id,
-            profile_id=gen_task.profile_id,
-            text_preview=gen_task.text_preview,
-            started_at=gen_task.started_at,
-        ))
-    
+        active_generations.append(
+            models.ActiveGenerationTask(
+                task_id=gen_task.task_id,
+                profile_id=gen_task.profile_id,
+                text_preview=gen_task.text_preview,
+                started_at=gen_task.started_at,
+            )
+        )
+
     return models.ActiveTasksResponse(
         downloads=active_downloads,
         generations=active_generations,
@@ -1752,12 +1910,13 @@ async def get_active_tasks():
 # STARTUP & SHUTDOWN
 # ============================================
 
+
 def _get_gpu_status() -> str:
     """Get GPU availability status."""
     backend_type = get_backend_type()
     if torch.cuda.is_available():
         return f"CUDA ({torch.cuda.get_device_name(0)})"
-    elif hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+    elif hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
         return "MPS (Apple Silicon)"
     elif backend_type == "mlx":
         return "Metal (Apple Silicon via MLX)"
@@ -1785,12 +1944,15 @@ async def startup_event():
     # Ensure HuggingFace cache directory exists
     try:
         from huggingface_hub import constants as hf_constants
+
         cache_dir = Path(hf_constants.HF_HUB_CACHE)
         cache_dir.mkdir(parents=True, exist_ok=True)
         print(f"HuggingFace cache directory: {cache_dir}")
     except Exception as e:
         print(f"Warning: Could not create HuggingFace cache directory: {e}")
-        print("Model downloads may fail. Please ensure the directory exists and has write permissions.")
+        print(
+            "Model downloads may fail. Please ensure the directory exists and has write permissions."
+        )
 
 
 @app.on_event("shutdown")

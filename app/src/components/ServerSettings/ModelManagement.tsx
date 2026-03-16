@@ -67,11 +67,11 @@ export function ModelManagement() {
 
   const handleDownload = async (modelName: string) => {
     console.log('[Download] Button clicked for:', modelName, 'at', new Date().toISOString());
-    
+
     // Find display name
     const model = modelStatus?.models.find((m) => m.model_name === modelName);
     const displayName = model?.display_name || modelName;
-    
+
     try {
       // IMPORTANT: Call the API FIRST before setting state
       // Setting state enables the SSE EventSource in useModelDownloadToast,
@@ -79,11 +79,11 @@ export function ModelManagement() {
       console.log('[Download] Calling download API for:', modelName);
       const result = await apiClient.triggerModelDownload(modelName);
       console.log('[Download] Download API responded:', result);
-      
+
       // NOW set state to enable SSE tracking (after download has started on backend)
       setDownloadingModel(modelName);
       setDownloadingDisplayName(displayName);
-      
+
       // Download initiated successfully - state will be cleared when SSE reports completion
       // or by the polling interval detecting the model is downloaded
       queryClient.invalidateQueries({ queryKey: ['modelStatus'] });
@@ -117,7 +117,7 @@ export function ModelManagement() {
       // Invalidate AND explicitly refetch to ensure UI updates
       // Using refetchType: 'all' ensures we refetch even if the query is stale
       console.log('[Delete] Invalidating modelStatus query');
-      await queryClient.invalidateQueries({ 
+      await queryClient.invalidateQueries({
         queryKey: ['modelStatus'],
         refetchType: 'all',
       });
@@ -212,7 +212,6 @@ export function ModelManagement() {
                   ))}
               </div>
             </div>
-
           </div>
         ) : null}
       </CardContent>
@@ -265,20 +264,20 @@ interface ModelItemProps {
     model_name: string;
     display_name: string;
     downloaded: boolean;
-    downloading?: boolean;  // From server - true if download in progress
+    downloading?: boolean; // From server - true if download in progress
     size_mb?: number;
     loaded: boolean;
   };
   onDownload: () => void;
   onDelete: () => void;
-  isDownloading: boolean;  // Local state - true if user just clicked download
+  isDownloading: boolean; // Local state - true if user just clicked download
   formatSize: (sizeMb?: number) => string;
 }
 
 function ModelItem({ model, onDownload, onDelete, isDownloading, formatSize }: ModelItemProps) {
   // Use server's downloading state OR local state (for immediate feedback before server updates)
   const showDownloading = model.downloading || isDownloading;
-  
+
   return (
     <div className="flex items-center justify-between p-3 border rounded-lg">
       <div className="flex-1">

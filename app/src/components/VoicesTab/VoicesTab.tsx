@@ -1,6 +1,6 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Edit, MoreHorizontal, Plus, Trash2, Mic } from 'lucide-react';
-import { useMemo, useRef } from 'react';
+import { Edit, Mic, MoreHorizontal, Plus, RotateCcw, Trash2 } from 'lucide-react';
+import { useMemo, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
@@ -22,21 +22,33 @@ import { apiClient } from '@/lib/api/client';
 import type { VoiceProfileResponse } from '@/lib/api/types';
 import { BOTTOM_SAFE_AREA_PADDING } from '@/lib/constants/ui';
 import { useHistory } from '@/lib/hooks/useHistory';
-import { useDeleteProfile, useProfileSamples, useProfiles } from '@/lib/hooks/useProfiles';
+import {
+  useDeletedProfiles,
+  useDeleteProfile,
+  useProfileSamples,
+  useProfiles,
+  useRestoreProfile,
+} from '@/lib/hooks/useProfiles';
 import { cn } from '@/lib/utils/cn';
 import { usePlayerStore } from '@/stores/playerStore';
 import { useUIStore } from '@/stores/uiStore';
 
 export function VoicesTab() {
+  const [showDeleted, setShowDeleted] = useState(false);
+
   const { data: profiles, isLoading } = useProfiles();
+  const { data: deletedProfiles } = useDeletedProfiles();
   const { data: historyData } = useHistory({ limit: 1000 });
   const queryClient = useQueryClient();
   const setDialogOpen = useUIStore((state) => state.setProfileDialogOpen);
   const setEditingProfileId = useUIStore((state) => state.setEditingProfileId);
   const deleteProfile = useDeleteProfile();
+  const restoreProfile = useRestoreProfile();
   const scrollRef = useRef<HTMLDivElement>(null);
   const audioUrl = usePlayerStore((state) => state.audioUrl);
   const isPlayerVisible = !!audioUrl;
+
+  const currentProfiles = showDeleted ? deletedProfiles : profiles;
 
   // Get generation counts per profile
   const generationCounts = useMemo(() => {
@@ -53,9 +65,9 @@ export function VoicesTab() {
   const { data: channelAssignments } = useQuery({
     queryKey: ['profile-channels'],
     queryFn: async () => {
-      if (!profiles) return {};
+      if (!currentProfiles) return {};
       const assignments: Record<string, string[]> = {};
-      for (const profile of profiles) {
+      for (const profile of currentProfiles) {
         try {
           const result = await apiClient.getProfileChannels(profile.id);
           assignments[profile.id] = result.channel_ids;
@@ -65,7 +77,7 @@ export function VoicesTab() {
       }
       return assignments;
     },
-    enabled: !!profiles,
+    enabled: !!currentProfiles,
   });
 
   // Get all channels
@@ -81,7 +93,23 @@ export function VoicesTab() {
 
   const handleProfileDelete = async (profileId: string) => {
     if (await confirm('Are you sure you want to delete this profile?')) {
-      deleteProfile.mutate(profileId);
+      deleteProfile.mutate({ profileId, permanent: false });
+    }
+  };
+
+  const handlePermanentDelete = async (profileId: string) => {
+    if (
+      await confirm(
+        'Are you sure you want to permanently delete this profile? This cannot be undone!',
+      )
+    ) {
+      deleteProfile.mutate({ profileId, permanent: true });
+    }
+  };
+
+  const handleRestoreProfile = async (profileId: string) => {
+    if (await confirm('Are you sure you want to restore this profile?')) {
+      restoreProfile.mutate(profileId);
     }
   };
 
@@ -110,11 +138,22 @@ export function VoicesTab() {
       {/* Fixed Header */}
       <div className="absolute top-0 left-0 right-0 z-20">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-2xl font-bold">Voices</h1>
-          <Button onClick={() => setDialogOpen(true)}>
-            <Plus className="h-4 w-4 mr-2" />
-            New Voice
-          </Button>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold">Voices</h1>
+            <Button
+              variant={showDeleted ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setShowDeleted(!showDeleted)}
+            >
+              {showDeleted ? 'Show Active' : 'Show Deleted'}
+            </Button>
+          </div>
+          {!showDeleted && (
+            <Button onClick={() => setDialogOpen(true)}>
+              <Plus className="h-4 w-4 mr-2" />
+              New Voice
+            </Button>
+          )}
         </div>
       </div>
 
@@ -138,7 +177,7 @@ export function VoicesTab() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {profiles?.map((profile) => (
+            {currentProfiles?.map((profile) => (
               <VoiceRow
                 key={profile.id}
                 profile={profile}
@@ -148,6 +187,9 @@ export function VoicesTab() {
                 onChannelChange={(channelIds) => handleChannelChange(profile.id, channelIds)}
                 onEdit={() => handleEdit(profile.id)}
                 onDelete={() => handleProfileDelete(profile.id)}
+                onRestore={() => handleRestoreProfile(profile.id)}
+                onPermanentDelete={() => handlePermanentDelete(profile.id)}
+                showDeleted={showDeleted}
               />
             ))}
           </TableBody>
@@ -167,6 +209,9 @@ interface VoiceRowProps {
   onChannelChange: (channelIds: string[]) => void;
   onEdit: () => void;
   onDelete: () => void;
+  onRestore: () => void;
+  onPermanentDelete: () => void;
+  showDeleted: boolean;
 }
 
 function VoiceRow({
@@ -177,11 +222,14 @@ function VoiceRow({
   onChannelChange,
   onEdit,
   onDelete,
+  onRestore,
+  onPermanentDelete,
+  showDeleted,
 }: VoiceRowProps) {
   const { data: samples } = useProfileSamples(profile.id);
 
   return (
-    <TableRow className="cursor-pointer" onClick={onEdit}>
+    <TableRow className="cursor-pointer" onClick={!showDeleted ? onEdit : undefined}>
       <TableCell>
         <div className="flex items-center gap-2">
           <div className="h-8 w-8 rounded-lg bg-muted flex items-center justify-center shrink-0">
@@ -199,16 +247,18 @@ function VoiceRow({
       <TableCell onClick={(e) => e.stopPropagation()}>{generationCount}</TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>{samples?.length || 0}</TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
-        <MultiSelect
-          options={channels.map((ch) => ({
-            value: ch.id,
-            label: `${ch.name}${ch.is_default ? ' (Default)' : ''}`,
-          }))}
-          value={channelIds}
-          onChange={onChannelChange}
-          placeholder="Select channels..."
-          className="min-w-[200px]"
-        />
+        {!showDeleted && (
+          <MultiSelect
+            options={channels.map((ch) => ({
+              value: ch.id,
+              label: `${ch.name}${ch.is_default ? ' (Default)' : ''}`,
+            }))}
+            value={channelIds}
+            onChange={onChannelChange}
+            placeholder="Select channels..."
+            className="min-w-[200px]"
+          />
+        )}
       </TableCell>
       <TableCell onClick={(e) => e.stopPropagation()}>
         <DropdownMenu>
@@ -218,14 +268,29 @@ function VoiceRow({
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent>
-            <DropdownMenuItem onClick={onEdit}>
-              <Edit className="h-4 w-4 mr-2" />
-              Edit
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={onDelete} className="text-destructive">
-              <Trash2 className="h-4 w-4 mr-2" />
-              Delete
-            </DropdownMenuItem>
+            {showDeleted ? (
+              <>
+                <DropdownMenuItem onClick={onRestore}>
+                  <RotateCcw className="h-4 w-4 mr-2" />
+                  Restore
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onPermanentDelete} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Permanent Delete
+                </DropdownMenuItem>
+              </>
+            ) : (
+              <>
+                <DropdownMenuItem onClick={onEdit}>
+                  <Edit className="h-4 w-4 mr-2" />
+                  Edit
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={onDelete} className="text-destructive">
+                  <Trash2 className="h-4 w-4 mr-2" />
+                  Delete
+                </DropdownMenuItem>
+              </>
+            )}
           </DropdownMenuContent>
         </DropdownMenu>
       </TableCell>

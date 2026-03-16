@@ -10,6 +10,7 @@ import { Toaster } from '@/components/ui/toaster';
 import { VoicesTab } from '@/components/VoicesTab/VoicesTab';
 import { useModelDownloadToast } from '@/lib/hooks/useModelDownloadToast';
 import { MODEL_DISPLAY_NAMES, useRestoreActiveTasks } from '@/lib/hooks/useRestoreActiveTasks';
+
 // Simple platform check that works in both web and Tauri
 const isMacOS = () => navigator.platform.toLowerCase().includes('mac');
 

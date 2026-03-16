@@ -1,0 +1,18 @@
+#!/bin/bash
+# Eburon TTS Echo Model - Simple TTS wrapper
+
+VENV_PYTHON="/Users/master/vbox/voicebox/backend/venv/bin/python"
+SCRIPT_DIR="/Users/master/vbox/voicebox/scripts"
+TTS_SCRIPT="$SCRIPT_DIR/qwen_tts.py"
+
+if [ $# -lt 1 ]; then
+    echo "Eburon TTS Echo Model"
+    echo "Usage: eburon-tts \"Your text here\" [output_file]"
+    echo "  Default output: /tmp/tts_output.wav"
+    exit 1
+fi
+
+TEXT="$1"
+OUTPUT="${2:-/tmp/tts_output.wav}"
+
+$VENV_PYTHON "$TTS_SCRIPT" "$TEXT" "$OUTPUT"

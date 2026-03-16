@@ -7,8 +7,8 @@ import { Slider } from '@/components/ui/slider';
 import { apiClient } from '@/lib/api/client';
 import { formatAudioDuration } from '@/lib/utils/audio';
 import { debug } from '@/lib/utils/debug';
-import { usePlayerStore } from '@/stores/playerStore';
 import { usePlatform } from '@/platform/PlatformContext';
+import { usePlayerStore } from '@/stores/playerStore';
 
 export function AudioPlayer() {
   const platform = usePlatform();
@@ -359,7 +359,7 @@ export function AudioPlayer() {
         if (shouldAutoPlayNow) {
           // Clear the flag first
           usePlayerStore.getState().clearAutoPlayFlag();
-          
+
           // Use a small delay to ensure audio element is fully ready
           setTimeout(() => {
             wavesurfer.play().catch((error) => {
@@ -664,7 +664,7 @@ export function AudioPlayer() {
   // Handle shouldAutoPlay flag - for story mode auto-advance
   const shouldAutoPlay = usePlayerStore((state) => state.shouldAutoPlay);
   const clearAutoPlayFlag = usePlayerStore((state) => state.clearAutoPlayFlag);
-  
+
   useEffect(() => {
     const wavesurfer = wavesurferRef.current;
     if (!wavesurfer || !shouldAutoPlay || duration === 0) {
