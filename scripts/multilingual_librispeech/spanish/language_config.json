@@ -1,0 +1,7 @@
+{
+  "language": "spanish",
+  "language_code": "es",
+  "sample_count": 100,
+  "source": "facebook/multilingual_librispeech",
+  "split": "train"
+}

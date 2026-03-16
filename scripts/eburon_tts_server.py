@@ -32,9 +32,9 @@ app.add_middleware(
 MODEL_PATH = "mlx-community/Qwen3-TTS-12Hz-1.7B-VoiceDesign-bf16"
 OUTPUT_DIR = "/tmp/eburon_tts_outputs"
 VOICE_PROMPTS_DIR = (
-    "/Users/master/vbox/voicebox/scripts/training_data/itawit/voice_clones"
+    "/Users/master/vbox/echovoice/scripts/training_data/itawit/voice_clones"
 )
-ITAWIT_MODELS_DIR = "/Users/master/vbox/voicebox/scripts/training_data/itawit/models"
+ITAWIT_MODELS_DIR = "/Users/master/vbox/echovoice/scripts/training_data/itawit/models"
 DB_PATH = "/tmp/echobox.db"
 
 _model = None
@@ -275,7 +275,7 @@ LANGUAGE_LEXICON = {
         "name": "Itawit - Training",
         "sample": "Ma-ngo! Mabbalat.",
         "needs_training": True,
-        "training_data": "/Users/master/vbox/voicebox/scripts/training_data/itawit",
+        "training_data": "/Users/master/vbox/echovoice/scripts/training_data/itawit",
         # Correct lexicon based on JW.org Itawit publications and native speakers
         "lexicon": {
             # Greetings & Common Phrases (verified Itawit)
@@ -531,7 +531,7 @@ async def generate_speech(request: TTSRequest):
     generation_kwargs = {"text": request.text}
 
     # Handle Itawit language with training data
-    itawit_training_dir = "/Users/master/vbox/voicebox/scripts/training_data/itawit"
+    itawit_training_dir = "/Users/master/vbox/echovoice/scripts/training_data/itawit"
     # Itawit-specific voice description for native-like output
     itawit_voice_desc = (
         "Itawit language speaker from Cagayan Valley, Philippines. "
@@ -1429,7 +1429,7 @@ async def generate_itawit_xtts(
         )
 
     # Find reference audio
-    itawit_dir = "/Users/master/vbox/voicebox/scripts/training_data/itawit"
+    itawit_dir = "/Users/master/vbox/echovoice/scripts/training_data/itawit"
     xtts_train_dir = os.path.join(itawit_dir, "xtts_train", "wav")
     segments_dir = os.path.join(itawit_dir, "segments")
 
@@ -1519,8 +1519,8 @@ async def generate_itawit_xtts(
 # Training Data Management
 def scan_itawit_training_data():
     """Scan and register Itawit training data from segments directory."""
-    segments_dir = "/Users/master/vbox/voicebox/scripts/training_data/itawit/segments"
-    itawit_dir = "/Users/master/vbox/voicebox/scripts/training_data/itawit"
+    segments_dir = "/Users/master/vbox/echovoice/scripts/training_data/itawit/segments"
+    itawit_dir = "/Users/master/vbox/echovoice/scripts/training_data/itawit"
 
     if not os.path.exists(segments_dir):
         return 0
@@ -1696,7 +1696,7 @@ async def generate_training_data(
         raise HTTPException(status_code=500, text="Coqui XTTS not available")
 
     # Get Itawit segments as reference
-    segments_dir = "/Users/master/vbox/voicebox/scripts/training_data/itawit/segments"
+    segments_dir = "/Users/master/vbox/echovoice/scripts/training_data/itawit/segments"
     ref_files = sorted([f for f in os.listdir(segments_dir) if f.endswith(".wav")])[:10]
     ref_audio_list = [os.path.join(segments_dir, f) for f in ref_files]
 

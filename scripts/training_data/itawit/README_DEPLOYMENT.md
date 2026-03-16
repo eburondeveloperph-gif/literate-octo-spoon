@@ -15,7 +15,7 @@ This guide covers setting up the Itawit (Itawis) Text-to-Speech system with voic
 ```bash
 # Clone the repository
 git clone https://github.com/eburondeveloperph-gif/symmetrical-spork.git
-cd voicebox
+cd echovoice
 
 # Create virtual environment
 python3 -m venv venv

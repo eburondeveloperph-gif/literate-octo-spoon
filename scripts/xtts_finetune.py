@@ -179,13 +179,13 @@ def main():
     parser.add_argument(
         "--data-dir",
         type=str,
-        default="/Users/master/vbox/voicebox/scripts/training_data/itawit",
+        default="/Users/master/vbox/echovoice/scripts/training_data/itawit",
         help="Training data directory",
     )
     parser.add_argument(
         "--output-dir",
         type=str,
-        default="/Users/master/vbox/voicebox/scripts/training_data/itawit/xtts_train",
+        default="/Users/master/vbox/echovoice/scripts/training_data/itawit/xtts_train",
         help="Output directory",
     )
     parser.add_argument("--text", type=str, help="Text to generate")

@@ -1,0 +1,24 @@
+{
+  "version": "1.0",
+  "source": "facebook/multilingual_librispeech",
+  "description": "Multilingual LibriSpeech subset for TTS training",
+  "languages": {
+    "dutch": {
+      "sample_count": 100,
+      "code": "nl"
+    },
+    "english": {
+      "sample_count": 0,
+      "code": "en"
+    },
+    "french": {
+      "sample_count": 100,
+      "code": "fr"
+    },
+    "spanish": {
+      "sample_count": 100,
+      "code": "es"
+    }
+  },
+  "total_samples": 300
+}

@@ -1,0 +1,68 @@
+# NL-BE Lexicon for Eburon TTS - Fine-tuned for Dutch (Flemish)
+# Format: word = translation
+
+# Greetings (Flemish variations)
+hallo = Hello
+goedemorgen = Good morning
+goedemiddag = Good afternoon
+goedenavond = Good evening
+goedenacht = Good night
+dag = Hi/Bye
+sluit = Bye (Flemish)
+aajuus = Bye (Flemish informal)
+tot_ziens = Goodbye
+
+# Common phrases (Flemish)
+dank_u = Thank you
+dank_je = Thank you (informal)
+merci = Thanks (Flemish informal)
+alstublieft = Please
+alsjeblieft = Please (informal)
+ja = Yes
+nee = No
+geen_probleem = No problem
+gelieve = Please (formal Flemish)
+
+# Questions
+hoe_gaat_het = How are you
+hoe_gaat_het_met_u = How are you (formal)
+wat_is_je_naam = What is your name
+hoe_heet_je = What's your name
+waar_woon_je = Where do you live
+
+# Flemish-specific words
+schoon = Beautiful (Flemish)
+schoon_maken = To clean
+schoenen = Shoes
+geschenk = Gift
+kado = Gift (Flemish)
+tas = Cup (Flemish)
+koffie = Coffee
+pintje = Beer (Flemish)
+
+# Numbers
+een = One
+twee = Two
+drie = Three
+vier = Four
+vijf = Five
+tien = Ten
+
+# Time
+vandaag = Today
+morgen = Tomorrow
+gisteren = Yesterday
+
+# Pronouns
+ik = I
+jij = You
+u = You (formal)
+huis = House
+woning = Home (Flemish)
+auto = Car
+wagen = Car (Flemish)
+
+# Phrases
+ik_begrijp_het = I understand
+ik_snel_niet = I don't know
+ik_snel_geen = I don't know (Flemish)

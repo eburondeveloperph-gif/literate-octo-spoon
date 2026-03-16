@@ -16,7 +16,7 @@ def import_presets():
     # Paths
     project_root = Path(__file__).parent.parent
     config_path = project_root / "data" / "voices" / "config.json"
-    db_path = project_root / "data" / "voicebox.db"
+    db_path = project_root / "data" / "echovoice.db"
 
     if not config_path.exists():
         print(f"Error: {config_path} not found. Run generate_preset_profiles.py first.")

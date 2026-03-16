@@ -1,0 +1,97 @@
+# NL Lexicon for Eburon TTS- Fine-tuned for Dutch (Netherlands)
+# Format: word = translation
+
+# Greetings
+hallo = Hello
+goedemorgen = Good morning
+goedemiddag = Good afternoon
+goedenavond = Good evening
+goedenacht = Good night
+dag = Hi/Bye
+hoi = Hi
+tot_ziens = Goodbye
+doei = Bye (informal)
+tot_morgen = See you tomorrow
+tot_straks = See you later
+
+# Common phrases
+dank_u = Thank you (formal)
+dank_je = Thank you (informal)
+dank_u_wel = Thank you very much
+alstublieft = Please (formal)
+alsjeblieft = Please (informal)
+ja = Yes
+nee = No
+misschien = Maybe
+sorry = Sorry
+geen_probleem = No problem
+graag_gedaan = You're welcome
+
+# Questions
+hoe_gaat_het = How are you
+hoe_gaat_het_met_u = How are you (formal)
+wat_is_je_naam = What is your name
+hoe_heet_je = What's your name
+waar_woon_je = Where do you live
+waar_kom_je_vandaan = Where do you come from
+hoe_oud_ben_je = How old are you
+wat_kost_dit = How much does this cost
+
+# Numbers
+een = One
+twee = Two
+drie = Three
+vier = Four
+vijf = Five
+tien = Ten
+honderd = Hundred
+duizend = Thousand
+
+# Time
+vandaag = Today
+morgen = Tomorrow
+gisteren = Yesterday
+nu = Now
+later = Later
+week = Week
+maand = Month
+jaar = Year
+
+# Family
+familie = Family
+vader = Father
+moeder = Mother
+broer = Brother
+zus = Sister
+kinderen = Children
+man = Man/Husband
+vrouw = Woman/Wife
+
+# Pronouns
+ik = I
+jij = You (informal)
+u = You (formal)
+hij = He
+zij = She/They
+wij = We
+mijn = My
+jouw = Your
+zijn = His/Their
+haar = Her
+
+# Common words
+huis = House
+auto = Car
+werk = Work
+school = School
+water = Water
+eten = Food
+drinken = Drink
+
+# Phrases
+ik_begrijp_het = I understand
+ik_snel_niet = I don't know
+ik_spreek_nederlands = I speak Dutch
+spreekt_u_nederlands = Do you speak Dutch
+hoe_zeg_je = How do you say
+wat_betekent = What does ... mean

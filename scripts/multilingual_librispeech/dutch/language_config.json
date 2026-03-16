@@ -1,0 +1,7 @@
+{
+  "language": "dutch",
+  "language_code": "nl",
+  "sample_count": 100,
+  "source": "facebook/multilingual_librispeech",
+  "split": "train"
+}

@@ -1,8 +1,8 @@
 #!/bin/bash
 # Eburon TTS Echo Model - Simple TTS wrapper
 
-VENV_PYTHON="/Users/master/vbox/voicebox/backend/venv/bin/python"
-SCRIPT_DIR="/Users/master/vbox/voicebox/scripts"
+VENV_PYTHON="/Users/master/vbox/echovoice/backend/venv/bin/python"
+SCRIPT_DIR="/Users/master/vbox/echovoice/scripts"
 TTS_SCRIPT="$SCRIPT_DIR/qwen_tts.py"
 
 if [ $# -lt 1 ]; then

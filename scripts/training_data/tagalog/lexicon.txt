@@ -1,0 +1,119 @@
+# TL Lexicon for Eburon TTS - Fine-tuned for Tagalog
+# Format: word = translation
+
+# Greetings
+kamusta = Hello/How are you
+magandang_umaga = Good morning
+magandang_tanghali = Good noon
+magandang_hapon = Good afternoon
+magandang_gabi = Good evening
+magandang_gabi_po = Good evening (formal)
+paalam = Goodbye
+paalam_na = Goodbye (casual)
+adodos = Goodbye (informal)
+
+# Common phrases
+salamat = Thank you
+salamat_po = Thank you (formal)
+maraming_salamat = Thank you very much
+walang_anuman = You're welcome
+paki = Please
+pakiusap = Please
+po = Polite marker
+opo = Yes (polite)
+oo = Yes
+hindi = No
+hindi_po = No (polite)
+pasensya_na = Sorry
+paumanhin_po = Excuse me/Sorry (formal)
+
+# Questions
+ano = What
+ano_ang_pangalan_mo = What is your name
+ano_ang_pangalan_ninyo = What is your name (formal)
+kumusta_ka = How are you
+kumusta_po_kayo = How are you (formal)
+saan_ka_nakatira = Where do you live
+saan_po_kayo_nakatira = Where do you live (formal)
+ilan_taon_mo = How old are you
+magkano = How much
+saan = Where
+kailan = When
+bakit = Why
+paano = How
+
+# Pronouns
+ako = I
+ikaw = You
+siya = He/She
+kami = We (exclusive)
+tayo = We (inclusive)
+sila = They
+mo = Your
+niya = His/Her
+namin = Our
+natin = Our (inclusive)
+
+# Family
+pamilya = Family
+ama = Father
+tatay = Dad
+ina = Mother
+nanay = Mom
+anak = Child
+kapatid = Sibling
+kuya = Older brother
+ate = Older sister
+tito = Uncle
+tita = Aunt
+lolo = Grandfather
+lola = Grandmother
+
+# Numbers
+isa = One
+dalawa = Two
+tatlo = Three
+apat = Four
+lima = Five
+anim = Six
+pito = Seven
+walo = Eight
+siyam = Nine
+sampu = Ten
+daan = Hundred
+libo = Thousand
+
+# Time
+ngayon = Now/Today
+bukas = Tomorrow
+kahapon = Yesterday
+umaga = Morning
+tanghali = Noon
+hapon = Afternoon
+gabi = Evening/Night
+linggo = Week
+buwan = Month
+taon = Year
+
+# Common words
+bahay = House
+kotse = Car
+trabaho = Work
+eskwela = School
+tubig = Water
+pagkain = Food
+inumin = Drink
+pera = Money
+bentahe = Advantage
+kahinaan = Disadvantage
+
+# Phrases
+naiintindihan_ko = I understand
+hindi_ko_alam = I don't know
+marunong_akong_mag_Tagalog = I speak Tagalog
+marunong_ka_bang_mag_Ingles = Do you speak English
+paano_mo_sabihin = How do you say
+ano_ang_ibig_sabihin = What does ... mean
+mahal_kita = I love you
+ingat_ka = Take care
+malas_ka = Good luck

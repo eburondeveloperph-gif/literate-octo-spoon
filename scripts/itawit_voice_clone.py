@@ -126,7 +126,7 @@ def main():
     args = parser.parse_args()
 
     # Itawit training data directory
-    itawit_dir = "/Users/master/vbox/voicebox/scripts/training_data/itawit"
+    itawit_dir = "/Users/master/vbox/echovoice/scripts/training_data/itawit"
 
     if args.list:
         print("Available Itawit reference audio:")

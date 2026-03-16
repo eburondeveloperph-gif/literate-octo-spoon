@@ -16,17 +16,17 @@ LANGUAGE_CONFIGS = {
     "tl": {
         "name": "Tagalog",
         "jw_lang": "tl",
-        "output_dir": "/Users/master/vbox/voicebox/scripts/training_data/tagalog",
+        "output_dir": "/Users/master/vbox/echovoice/scripts/training_data/tagalog",
     },
     "nl": {
         "name": "Dutch (Netherlands)",
         "jw_lang": "nl",
-        "output_dir": "/Users/master/vbox/voicebox/scripts/training_data/dutch_nl",
+        "output_dir": "/Users/master/vbox/echovoice/scripts/training_data/dutch_nl",
     },
     "nl-be": {
         "name": "Dutch (Flemish)",
         "jw_lang": "nl-be",
-        "output_dir": "/Users/master/vbox/voicebox/scripts/training_data/dutch_be",
+        "output_dir": "/Users/master/vbox/echovoice/scripts/training_data/dutch_be",
     },
 }
 
