@@ -1,6 +1,6 @@
 import { RouterProvider } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
-import voiceboxLogo from '@/assets/voicebox-logo.png';
+import echovoiceLogo from '@/assets/voicebox-logo.png';
 import ShinyText from '@/components/ShinyText';
 import { TitleBarDragRegion } from '@/components/TitleBarDragRegion';
 import { useAutoUpdater } from '@/hooks/useAutoUpdater';
@@ -83,7 +83,7 @@ function App() {
       setServerReady(true); // Mark as ready so UI doesn't show loading screen
       // Mark that server was not started by app (so we don't try to stop it on close)
       // @ts-expect-error - adding property to window
-      window.__voiceboxServerStartedByApp = false;
+      window.__echovoiceServerStartedByApp = false;
       return;
     }
 
@@ -104,13 +104,13 @@ function App() {
         setServerReady(true);
         // Mark that we started the server (so we know to stop it on close)
         // @ts-expect-error - adding property to window
-        window.__voiceboxServerStartedByApp = true;
+        window.__echovoiceServerStartedByApp = true;
       })
       .catch((error) => {
         console.error('Failed to auto-start server:', error);
         serverStartingRef.current = false;
         // @ts-expect-error - adding property to window
-        window.__voiceboxServerStartedByApp = false;
+        window.__echovoiceServerStartedByApp = false;
       });
 
     // Cleanup: stop server on actual unmount (not StrictMode remount)
@@ -152,8 +152,8 @@ function App() {
               <div className="w-48 h-48 rounded-full bg-accent/20 blur-3xl" />
             </div>
             <img
-              src={voiceboxLogo}
-              alt="Voicebox"
+              src={echovoiceLogo}
+              alt="echovoice"
               className="w-48 h-48 object-contain animate-fade-in-scale relative z-10"
             />
           </div>
