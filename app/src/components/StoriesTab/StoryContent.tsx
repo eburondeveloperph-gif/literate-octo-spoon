@@ -54,8 +54,7 @@ export function StoryContent() {
     return historyData.items.filter(
       (gen) =>
         !storyGenerationIds.has(gen.id) &&
-        (gen.text.toLowerCase().includes(query) ||
-          gen.profile_name.toLowerCase().includes(query)),
+        (gen.text.toLowerCase().includes(query) || gen.profile_name.toLowerCase().includes(query)),
     );
   }, [historyData, story, searchQuery]);
 
@@ -287,9 +286,7 @@ export function StoryContent() {
               <div className="max-h-60 overflow-y-auto">
                 {availableGenerations.length === 0 ? (
                   <div className="p-4 text-center text-sm text-muted-foreground">
-                    {searchQuery
-                      ? 'No matching generations found'
-                      : 'No available generations'}
+                    {searchQuery ? 'No matching generations found' : 'No available generations'}
                   </div>
                 ) : (
                   availableGenerations.map((gen) => (

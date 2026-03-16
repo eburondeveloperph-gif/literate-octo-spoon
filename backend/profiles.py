@@ -38,11 +38,11 @@ async def create_profile(
 ) -> VoiceProfileResponse:
     """
     Create a new voice profile.
-    
+
     Args:
         data: Profile creation data
         db: Database session
-        
+
     Returns:
         Created profile
     """
@@ -55,15 +55,15 @@ async def create_profile(
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
     )
-    
+
     db.add(db_profile)
     db.commit()
     db.refresh(db_profile)
-    
+
     # Create profile directory
     profile_dir = _get_profiles_dir() / db_profile.id
     profile_dir.mkdir(parents=True, exist_ok=True)
-    
+
     return VoiceProfileResponse.model_validate(db_profile)
 
 
@@ -75,13 +75,13 @@ async def add_profile_sample(
 ) -> ProfileSampleResponse:
     """
     Add a sample to a voice profile.
-    
+
     Args:
         profile_id: Profile ID
         audio_path: Path to temporary audio file
         reference_text: Transcript of audio
         db: Database session
-        
+
     Returns:
         Created sample
     """
@@ -89,22 +89,22 @@ async def add_profile_sample(
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         raise ValueError(f"Profile {profile_id} not found")
-    
+
     # Validate audio
     is_valid, error_msg = validate_reference_audio(audio_path)
     if not is_valid:
         raise ValueError(f"Invalid reference audio: {error_msg}")
-    
+
     # Create sample ID and directory
     sample_id = str(uuid.uuid4())
     profile_dir = _get_profiles_dir() / profile_id
     profile_dir.mkdir(parents=True, exist_ok=True)
-    
+
     # Copy audio file to profile directory
     dest_path = profile_dir / f"{sample_id}.wav"
     audio, sr = load_audio(audio_path)
     save_audio(audio, str(dest_path), sr)
-    
+
     # Create database entry
     db_sample = DBProfileSample(
         id=sample_id,
@@ -112,40 +112,48 @@ async def add_profile_sample(
         audio_path=str(dest_path),
         reference_text=reference_text,
     )
-    
+
     db.add(db_sample)
-    
+
     # Update profile timestamp
     profile.updated_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(db_sample)
-    
+
     # Invalidate combined audio cache for this profile
     # Since a new sample was added, any cached combined audio is now stale
     clear_profile_cache(profile_id)
-    
+
     return ProfileSampleResponse.model_validate(db_sample)
 
 
 async def get_profile(
     profile_id: str,
     db: Session,
+    include_deleted: bool = False,
 ) -> Optional[VoiceProfileResponse]:
     """
     Get a voice profile by ID.
-    
+
     Args:
         profile_id: Profile ID
         db: Database session
-        
+        include_deleted: If False (default), exclude soft-deleted profiles
+
     Returns:
         Profile or None if not found
     """
-    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if include_deleted:
+        profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    else:
+        profile = (
+            db.query(DBVoiceProfile).filter_by(id=profile_id, is_deleted=False).first()
+        )
+
     if not profile:
         return None
-    
+
     return VoiceProfileResponse.model_validate(profile)
 
 
@@ -155,11 +163,11 @@ async def get_profile_samples(
 ) -> List[ProfileSampleResponse]:
     """
     Get all samples for a profile.
-    
+
     Args:
         profile_id: Profile ID
         db: Database session
-        
+
     Returns:
         List of samples
     """
@@ -167,20 +175,29 @@ async def get_profile_samples(
     return [ProfileSampleResponse.model_validate(s) for s in samples]
 
 
-async def list_profiles(db: Session) -> List[VoiceProfileResponse]:
+async def list_profiles(
+    db: Session,
+    include_deleted: bool = False,
+) -> List[VoiceProfileResponse]:
     """
-    List all voice profiles.
-    
+    List voice profiles.
+
     Args:
         db: Database session
-        
+        include_deleted: If True, include ONLY soft-deleted profiles. If False, include ONLY active profiles.
+
     Returns:
         List of profiles
     """
-    profiles = db.query(DBVoiceProfile).order_by(
-        DBVoiceProfile.created_at.desc()
-    ).all()
-    
+    query = db.query(DBVoiceProfile)
+
+    if include_deleted:
+        query = query.filter_by(is_deleted=True)
+    else:
+        query = query.filter_by(is_deleted=False)
+
+    profiles = query.order_by(DBVoiceProfile.created_at.desc()).all()
+
     return [VoiceProfileResponse.model_validate(p) for p in profiles]
 
 
@@ -191,64 +208,102 @@ async def update_profile(
 ) -> Optional[VoiceProfileResponse]:
     """
     Update a voice profile.
-    
+
     Args:
         profile_id: Profile ID
         data: Updated profile data
         db: Database session
-        
+
     Returns:
         Updated profile or None if not found
     """
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         return None
-    
+
     # Update fields
     profile.name = data.name
     profile.description = data.description
     profile.language = data.language
     profile.updated_at = datetime.utcnow()
-    
+
     db.commit()
     db.refresh(profile)
-    
+
     return VoiceProfileResponse.model_validate(profile)
 
 
 async def delete_profile(
     profile_id: str,
     db: Session,
+    permanent: bool = False,
 ) -> bool:
     """
-    Delete a voice profile and all associated data.
-    
+    Delete a voice profile (soft delete by default).
+
     Args:
         profile_id: Profile ID
         db: Database session
-        
+        permanent: If True, permanently delete (hard delete). If False, soft delete.
+
     Returns:
         True if deleted, False if not found
     """
     profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
     if not profile:
         return False
-    
-    # Delete samples from database
-    db.query(DBProfileSample).filter_by(profile_id=profile_id).delete()
-    
-    # Delete profile from database
-    db.delete(profile)
+
+    if permanent:
+        # Permanent deletion
+        # Delete samples from database
+        db.query(DBProfileSample).filter_by(profile_id=profile_id).delete()
+
+        # Delete profile from database
+        db.delete(profile)
+        db.commit()
+
+        # Delete profile directory
+        profile_dir = _get_profiles_dir() / profile_id
+        if profile_dir.exists():
+            shutil.rmtree(profile_dir)
+
+        # Clean up combined audio cache files for this profile
+        clear_profile_cache(profile_id)
+    else:
+        # Soft delete
+        profile.is_deleted = True
+        profile.deleted_at = datetime.utcnow()
+        db.commit()
+
+    return True
+
+
+async def restore_profile(
+    profile_id: str,
+    db: Session,
+) -> bool:
+    """
+    Restore a soft-deleted voice profile.
+
+    Args:
+        profile_id: Profile ID
+        db: Database session
+
+    Returns:
+        True if restored, False if not found or not deleted
+    """
+    profile = db.query(DBVoiceProfile).filter_by(id=profile_id).first()
+    if not profile:
+        return False
+
+    if not profile.is_deleted:
+        return False  # Not deleted, nothing to restore
+
+    profile.is_deleted = False
+    profile.deleted_at = None
+    profile.updated_at = datetime.utcnow()
     db.commit()
-    
-    # Delete profile directory
-    profile_dir = _get_profiles_dir() / profile_id
-    if profile_dir.exists():
-        shutil.rmtree(profile_dir)
-    
-    # Clean up combined audio cache files for this profile
-    clear_profile_cache(profile_id)
-    
+
     return True
 
 
@@ -258,34 +313,34 @@ async def delete_profile_sample(
 ) -> bool:
     """
     Delete a profile sample.
-    
+
     Args:
         sample_id: Sample ID
         db: Database session
-        
+
     Returns:
         True if deleted, False if not found
     """
     sample = db.query(DBProfileSample).filter_by(id=sample_id).first()
     if not sample:
         return False
-    
+
     # Store profile_id before deleting
     profile_id = sample.profile_id
-    
+
     # Delete audio file
     audio_path = Path(sample.audio_path)
     if audio_path.exists():
         audio_path.unlink()
-    
+
     # Delete from database
     db.delete(sample)
     db.commit()
-    
+
     # Invalidate combined audio cache for this profile
     # Since the sample set changed, any cached combined audio is now stale
     clear_profile_cache(profile_id)
-    
+
     return True
 
 
@@ -296,30 +351,30 @@ async def update_profile_sample(
 ) -> Optional[ProfileSampleResponse]:
     """
     Update a profile sample's reference text.
-    
+
     Args:
         sample_id: Sample ID
         reference_text: Updated reference text
         db: Database session
-        
+
     Returns:
         Updated sample or None if not found
     """
     sample = db.query(DBProfileSample).filter_by(id=sample_id).first()
     if not sample:
         return None
-    
+
     # Store profile_id before updating
     profile_id = sample.profile_id
-    
+
     sample.reference_text = reference_text
     db.commit()
     db.refresh(sample)
-    
+
     # Invalidate combined audio cache for this profile
     # Since the reference text changed, cache keys and combined text are now stale
     clear_profile_cache(profile_id)
-    
+
     return ProfileSampleResponse.model_validate(sample)
 
 
@@ -370,14 +425,15 @@ async def create_voice_prompt_for_profile(
         # Save combined audio to cache directory (persistent)
         # Create a hash of sample IDs to identify this specific combination
         import hashlib
+
         sample_ids_str = "-".join(sorted([s.id for s in samples]))
         combination_hash = hashlib.md5(sample_ids_str.encode()).hexdigest()[:12]
-        
+
         # Store in cache directory
         cache_dir = _get_cache_dir()
         cache_dir.mkdir(parents=True, exist_ok=True)
         combined_path = cache_dir / f"combined_{profile_id}_{combination_hash}.wav"
-        
+
         # Save combined audio
         save_audio(combined_audio, str(combined_path), 24000)
 
@@ -424,18 +480,15 @@ async def upload_avatar(
 
     # Determine file extension from uploaded file
     from PIL import Image
+
     with Image.open(image_path) as img:
         # Normalize JPEG variants (MPO is multi-picture format from some cameras)
         img_format = img.format
-        if img_format in ('MPO', 'JPG'):
-            img_format = 'JPEG'
-        
-        ext_map = {
-            'PNG': '.png',
-            'JPEG': '.jpg',
-            'WEBP': '.webp'
-        }
-        ext = ext_map.get(img_format, '.png')
+        if img_format in ("MPO", "JPG"):
+            img_format = "JPEG"
+
+        ext_map = {"PNG": ".png", "JPEG": ".jpg", "WEBP": ".webp"}
+        ext = ext_map.get(img_format, ".png")
 
     # Save processed image to profile directory
     profile_dir = _get_profiles_dir() / profile_id

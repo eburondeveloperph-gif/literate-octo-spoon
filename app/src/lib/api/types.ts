@@ -15,6 +15,8 @@ export interface VoiceProfileResponse {
   avatar_path?: string;
   created_at: string;
   updated_at: string;
+  is_deleted?: boolean;
+  deleted_at?: string;
 }
 
 export interface ProfileSampleCreate {
@@ -96,7 +98,7 @@ export interface ModelStatus {
   model_name: string;
   display_name: string;
   downloaded: boolean;
-  downloading: boolean;  // True if download is in progress
+  downloading: boolean; // True if download is in progress
   size_mb?: number;
   loaded: boolean;
 }

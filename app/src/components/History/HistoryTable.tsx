@@ -54,7 +54,9 @@ export function HistoryTable() {
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [generationToDelete, setGenerationToDelete] = useState<{ id: string; name: string } | null>(null);
+  const [generationToDelete, setGenerationToDelete] = useState<{ id: string; name: string } | null>(
+    null,
+  );
   const limit = 20;
   const { toast } = useToast();
 
@@ -371,7 +373,8 @@ export function HistoryTable() {
           <DialogHeader>
             <DialogTitle>Delete Generation</DialogTitle>
             <DialogDescription>
-              Are you sure you want to delete this generation from "{generationToDelete?.name}"? This action cannot be undone.
+              Are you sure you want to delete this generation from "{generationToDelete?.name}"?
+              This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -21,7 +21,7 @@ export function formatDate(date: string | Date): string {
   } else {
     dateObj = date;
   }
-  
+
   return formatDistance(dateObj, new Date(), { addSuffix: true }).replace(/^about /i, '');
 }
 

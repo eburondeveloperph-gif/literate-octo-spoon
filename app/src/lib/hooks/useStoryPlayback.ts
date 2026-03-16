@@ -224,7 +224,7 @@ export function useStoryPlayback(items: StoryItemDetail[] | undefined) {
 
           // Calculate when this item should start in AudioContext time
           const itemStartContextTime = storyTimeToContextTime(item.start_time_ms);
-          
+
           // Calculate effective duration and trim offsets
           const trimStartSec = (item.trim_start_ms || 0) / 1000;
           const trimEndSec = (item.trim_end_ms || 0) / 1000;

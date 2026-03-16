@@ -18,13 +18,13 @@ from ..utils.tasks import get_task_manager
 
 class PyTorchTTSBackend:
     """PyTorch-based TTS backend using Qwen3-TTS."""
-    
+
     def __init__(self, model_size: str = "1.7B"):
         self.model = None
         self.model_size = model_size
         self.device = self._get_device()
         self._current_model_size = None
-    
+
     def _get_device(self) -> str:
         """Get the best available device."""
         if torch.cuda.is_available():
@@ -32,33 +32,37 @@ class PyTorchTTSBackend:
         # Intel Arc / Intel Xe GPU via intel-extension-for-pytorch (IPEX)
         try:
             import intel_extension_for_pytorch  # noqa: F401
-            if hasattr(torch, 'xpu') and torch.xpu.is_available():
+
+            if hasattr(torch, "xpu") and torch.xpu.is_available():
                 return "xpu"
         except ImportError:
             pass
         # Any GPU on Windows via DirectML (torch-directml)
         try:
             import torch_directml
+
             if torch_directml.device_count() > 0:
                 return torch_directml.device(0)
         except ImportError:
             pass
         # MPS (Apple Silicon) — kept for completeness but MLX backend is preferred
-        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
-            return "cpu"  # MPS disabled for stability; MLX backend handles Apple Silicon
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
+            return (
+                "cpu"  # MPS disabled for stability; MLX backend handles Apple Silicon
+            )
         return "cpu"
-    
+
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
-    
+
     def _get_model_path(self, model_size: str) -> str:
         """
         Get the HuggingFace Hub model ID.
-        
+
         Args:
             model_size: Model size (1.7B or 0.6B)
-            
+
         Returns:
             HuggingFace Hub model ID
         """
@@ -66,76 +70,82 @@ class PyTorchTTSBackend:
             "1.7B": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
             "0.6B": "Qwen/Qwen3-TTS-12Hz-0.6B-Base",
         }
-        
+
         if model_size not in hf_model_map:
             raise ValueError(f"Unknown model size: {model_size}")
-        
+
         return hf_model_map[model_size]
-    
+
     def _is_model_cached(self, model_size: str) -> bool:
         """
         Check if the model is already cached locally AND fully downloaded.
-        
+
         Args:
             model_size: Model size to check
-            
+
         Returns:
             True if model is fully cached, False if missing or incomplete
         """
         try:
             from huggingface_hub import constants as hf_constants
+
             model_path = self._get_model_path(model_size)
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_path.replace("/", "--"))
-            
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / (
+                "models--" + model_path.replace("/", "--")
+            )
+
             if not repo_cache.exists():
                 return False
-            
+
             # Check for .incomplete files - if any exist, download is still in progress
             blobs_dir = repo_cache / "blobs"
             if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
-                print(f"[_is_model_cached] Found .incomplete files for {model_size}, treating as not cached")
+                print(
+                    f"[_is_model_cached] Found .incomplete files for {model_size}, treating as not cached"
+                )
                 return False
-            
+
             # Check that actual model weight files exist in snapshots
             snapshots_dir = repo_cache / "snapshots"
             if snapshots_dir.exists():
-                has_weights = (
-                    any(snapshots_dir.rglob("*.safetensors")) or
-                    any(snapshots_dir.rglob("*.bin"))
+                has_weights = any(snapshots_dir.rglob("*.safetensors")) or any(
+                    snapshots_dir.rglob("*.bin")
                 )
                 if not has_weights:
-                    print(f"[_is_model_cached] No model weights found for {model_size}, treating as not cached")
+                    print(
+                        f"[_is_model_cached] No model weights found for {model_size}, treating as not cached"
+                    )
                     return False
-            
+
             return True
         except Exception as e:
             print(f"[_is_model_cached] Error checking cache for {model_size}: {e}")
             return False
-    
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the TTS model with automatic downloading from HuggingFace Hub.
-        
+
         Args:
             model_size: Model size to load (1.7B or 0.6B)
         """
         if model_size is None:
             model_size = self.model_size
-            
+
         # If already loaded with correct size, return
         if self.model is not None and self._current_model_size == model_size:
             return
-        
+
         # Unload existing model if different size requested
         if self.model is not None and self._current_model_size != model_size:
             self.unload_model()
-        
+
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
-    
+
     # Alias for compatibility
     load_model = load_model_async
-    
+
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
         try:
@@ -149,8 +159,12 @@ class PyTorchTTSBackend:
             # Set up progress callback and tracker
             # If cached: filter out non-download progress (like "Segment 1/1" during generation)
             # If not cached: report all progress (we're actually downloading)
-            progress_callback = create_hf_progress_callback(model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
+            progress_callback = create_hf_progress_callback(
+                model_name, progress_manager
+            )
+            tracker = HFProgressTracker(
+                progress_callback, filter_non_downloads=is_cached
+            )
 
             # Patch tqdm BEFORE importing qwen_tts
             tracker_context = tracker.patch_download()
@@ -198,19 +212,21 @@ class PyTorchTTSBackend:
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
-            
+
             # Only mark download as complete if we were tracking it
             if not is_cached:
                 progress_manager.mark_complete(model_name)
                 task_manager.complete_download(model_name)
-            
+
             self._current_model_size = model_size
             self.model_size = model_size
-            
+
             print(f"TTS model {model_size} loaded successfully")
-            
+
         except ImportError as e:
-            print(f"Error: qwen_tts package not found. Install with: pip install git+https://github.com/QwenLM/Qwen3-TTS.git")
+            print(
+                f"Error: qwen_tts package not found. Install with: pip install git+https://github.com/QwenLM/Qwen3-TTS.git"
+            )
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             model_name = f"qwen-tts-{model_size}"
@@ -219,26 +235,28 @@ class PyTorchTTSBackend:
             raise
         except Exception as e:
             print(f"Error loading TTS model: {e}")
-            print(f"Tip: The model will be automatically downloaded from HuggingFace Hub on first use.")
+            print(
+                f"Tip: The model will be automatically downloaded from HuggingFace Hub on first use."
+            )
             progress_manager = get_progress_manager()
             task_manager = get_task_manager()
             model_name = f"qwen-tts-{model_size}"
             progress_manager.mark_error(model_name, str(e))
             task_manager.error_download(model_name, str(e))
             raise
-    
+
     def unload_model(self):
         """Unload the model to free memory."""
         if self.model is not None:
             del self.model
             self.model = None
             self._current_model_size = None
-            
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            
+
             print("TTS model unloaded")
-    
+
     async def create_voice_prompt(
         self,
         audio_path: str,
@@ -247,17 +265,17 @@ class PyTorchTTSBackend:
     ) -> Tuple[dict, bool]:
         """
         Create voice prompt from reference audio.
-        
+
         Args:
             audio_path: Path to reference audio file
             reference_text: Transcript of reference audio
             use_cache: Whether to use cached prompt if available
-            
+
         Returns:
             Tuple of (voice_prompt_dict, was_cached)
         """
         await self.load_model_async(None)
-        
+
         # Check cache if enabled
         if use_cache:
             cache_key = get_cache_key(audio_path, reference_text)
@@ -273,7 +291,7 @@ class PyTorchTTSBackend:
                     # Legacy cache format - convert to dict
                     # This shouldn't happen in practice, but handle it
                     return {"prompt": cached_prompt}, True
-        
+
         def _create_prompt_sync():
             """Run synchronous voice prompt creation in thread pool."""
             return self.model.create_voice_clone_prompt(
@@ -281,17 +299,17 @@ class PyTorchTTSBackend:
                 ref_text=reference_text,
                 x_vector_only_mode=False,
             )
-        
+
         # Run blocking operation in thread pool
         voice_prompt_items = await asyncio.to_thread(_create_prompt_sync)
-        
+
         # Cache if enabled
         if use_cache:
             cache_key = get_cache_key(audio_path, reference_text)
             cache_voice_prompt(cache_key, voice_prompt_items)
-        
+
         return voice_prompt_items, False
-    
+
     async def combine_voice_prompts(
         self,
         audio_paths: List[str],
@@ -299,30 +317,30 @@ class PyTorchTTSBackend:
     ) -> Tuple[np.ndarray, str]:
         """
         Combine multiple reference samples for better quality.
-        
+
         Args:
             audio_paths: List of audio file paths
             reference_texts: List of reference texts
-            
+
         Returns:
             Tuple of (combined_audio, combined_text)
         """
         combined_audio = []
-        
+
         for audio_path in audio_paths:
             audio, sr = load_audio(audio_path)
             audio = normalize_audio(audio)
             combined_audio.append(audio)
-        
+
         # Concatenate audio
         mixed = np.concatenate(combined_audio)
         mixed = normalize_audio(mixed)
-        
+
         # Combine texts
         combined_text = " ".join(reference_texts)
-        
+
         return mixed, combined_text
-    
+
     async def generate(
         self,
         text: str,
@@ -337,7 +355,7 @@ class PyTorchTTSBackend:
         Args:
             text: Text to synthesize
             voice_prompt: Voice prompt dictionary from create_voice_prompt
-            language: Language code (en or zh)
+            language: Language code (en, zh, tl, ilo, etc.)
             seed: Random seed for reproducibility
             instruct: Natural language instruction for speech delivery control
 
@@ -347,6 +365,16 @@ class PyTorchTTSBackend:
         # Load model
         await self.load_model_async(None)
 
+        # Log generation parameters
+        print(f"[PyTorch TTS] Generating audio:")
+        print(f"  Text: {text[:100]}{'...' if len(text) > 100 else ''}")
+        print(f"  Language: {language}")
+        print(f"  Seed: {seed}")
+        print(f"  Voice cloning: ENABLED")
+        ref_audio = voice_prompt.get("ref_audio") or voice_prompt.get("ref_audio_path")
+        if ref_audio:
+            print(f"  Reference audio: {ref_audio}")
+
         def _generate_sync():
             """Run synchronous generation in thread pool."""
             # Set seed if provided
@@ -354,13 +382,27 @@ class PyTorchTTSBackend:
                 torch.manual_seed(seed)
                 if torch.cuda.is_available():
                     torch.cuda.manual_seed(seed)
+                print(f"  Seed set: {seed}")
+
+            # Build generation kwargs
+            gen_kwargs = {
+                "text": text,
+                "voice_clone_prompt": voice_prompt,
+                "instruct": instruct,
+            }
+
+            # Pass language if model supports it
+            try:
+                import inspect
+
+                sig = inspect.signature(self.model.generate_voice_clone)
+                if "language" in str(sig.parameters):
+                    gen_kwargs["language"] = language
+            except:
+                pass
 
             # Generate audio - this is the blocking operation
-            wavs, sample_rate = self.model.generate_voice_clone(
-                text=text,
-                voice_clone_prompt=voice_prompt,
-                instruct=instruct,
-            )
+            wavs, sample_rate = self.model.generate_voice_clone(**gen_kwargs)
             return wavs[0], sample_rate
 
         # Run blocking inference in thread pool to avoid blocking event loop
@@ -371,13 +413,13 @@ class PyTorchTTSBackend:
 
 class PyTorchSTTBackend:
     """PyTorch-based STT backend using Whisper."""
-    
+
     def __init__(self, model_size: str = "base"):
         self.model = None
         self.processor = None
         self.model_size = model_size
         self.device = self._get_device()
-    
+
     def _get_device(self) -> str:
         """Get the best available device."""
         if torch.cuda.is_available():
@@ -385,65 +427,75 @@ class PyTorchSTTBackend:
         # Intel Arc / Intel Xe GPU via intel-extension-for-pytorch (IPEX)
         try:
             import intel_extension_for_pytorch  # noqa: F401
-            if hasattr(torch, 'xpu') and torch.xpu.is_available():
+
+            if hasattr(torch, "xpu") and torch.xpu.is_available():
                 return "xpu"
         except ImportError:
             pass
         # Any GPU on Windows via DirectML (torch-directml)
         try:
             import torch_directml
+
             if torch_directml.device_count() > 0:
                 return torch_directml.device(0)
         except ImportError:
             pass
-        if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available():
+        if hasattr(torch.backends, "mps") and torch.backends.mps.is_available():
             return "cpu"  # MPS disabled for stability
         return "cpu"
-    
+
     def is_loaded(self) -> bool:
         """Check if model is loaded."""
         return self.model is not None
-    
+
     def _is_model_cached(self, model_size: str) -> bool:
         """
         Check if the Whisper model is already cached locally AND fully downloaded.
-        
+
         Args:
             model_size: Model size to check
-            
+
         Returns:
             True if model is fully cached, False if missing or incomplete
         """
         try:
             from huggingface_hub import constants as hf_constants
+
             model_name = f"openai/whisper-{model_size}"
-            repo_cache = Path(hf_constants.HF_HUB_CACHE) / ("models--" + model_name.replace("/", "--"))
-            
+            repo_cache = Path(hf_constants.HF_HUB_CACHE) / (
+                "models--" + model_name.replace("/", "--")
+            )
+
             if not repo_cache.exists():
                 return False
-            
+
             # Check for .incomplete files - if any exist, download is still in progress
             blobs_dir = repo_cache / "blobs"
             if blobs_dir.exists() and any(blobs_dir.glob("*.incomplete")):
-                print(f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached")
+                print(
+                    f"[_is_model_cached] Found .incomplete files for whisper-{model_size}, treating as not cached"
+                )
                 return False
-            
+
             # Check that actual model weight files exist in snapshots
             snapshots_dir = repo_cache / "snapshots"
             if snapshots_dir.exists():
-                has_weights = (
-                    any(snapshots_dir.rglob("*.safetensors")) or
-                    any(snapshots_dir.rglob("*.bin"))
+                has_weights = any(snapshots_dir.rglob("*.safetensors")) or any(
+                    snapshots_dir.rglob("*.bin")
                 )
                 if not has_weights:
-                    print(f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached")
+                    print(
+                        f"[_is_model_cached] No model weights found for whisper-{model_size}, treating as not cached"
+                    )
                     return False
-            
+
             return True
         except Exception as e:
-            print(f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}")
+            print(
+                f"[_is_model_cached] Error checking cache for whisper-{model_size}: {e}"
+            )
             return False
-    
+
     async def load_model_async(self, model_size: Optional[str] = None):
         """
         Lazy load the Whisper model.
@@ -455,7 +507,9 @@ class PyTorchSTTBackend:
         if model_size is None:
             model_size = self.model_size
 
-        print(f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}")
+        print(
+            f"[DEBUG] Model already loaded? {self.model is not None}, current size: {self.model_size}, requested: {model_size}"
+        )
         if self.model is not None and self.model_size == model_size:
             print(f"[DEBUG] Early return - model already loaded")
             return
@@ -464,10 +518,10 @@ class PyTorchSTTBackend:
         # Run blocking load in thread pool
         await asyncio.to_thread(self._load_model_sync, model_size)
         print(f"[DEBUG] asyncio.to_thread completed")
-    
+
     # Alias for compatibility
     load_model = load_model_async
-    
+
     def _load_model_sync(self, model_size: str):
         """Synchronous model loading."""
         print(f"[DEBUG] _load_model_sync called for Whisper {model_size}")
@@ -482,8 +536,12 @@ class PyTorchSTTBackend:
             # Set up progress callback and tracker
             # If cached: filter out non-download progress
             # If not cached: report all progress (we're actually downloading)
-            progress_callback = create_hf_progress_callback(progress_model_name, progress_manager)
-            tracker = HFProgressTracker(progress_callback, filter_non_downloads=is_cached)
+            progress_callback = create_hf_progress_callback(
+                progress_model_name, progress_manager
+            )
+            tracker = HFProgressTracker(
+                progress_callback, filter_non_downloads=is_cached
+            )
 
             # Patch tqdm BEFORE importing transformers
             print("[DEBUG] Starting tqdm patch BEFORE transformers import")
@@ -520,17 +578,17 @@ class PyTorchSTTBackend:
             finally:
                 # Exit the patch context
                 tracker_context.__exit__(None, None, None)
-            
+
             # Only mark download as complete if we were tracking it
             if not is_cached:
                 progress_manager.mark_complete(progress_model_name)
                 task_manager.complete_download(progress_model_name)
-            
+
             self.model.to(self.device)
             self.model_size = model_size
-            
+
             print(f"Whisper model {model_size} loaded successfully")
-            
+
         except Exception as e:
             print(f"Error loading Whisper model: {e}")
             progress_manager = get_progress_manager()
@@ -539,7 +597,7 @@ class PyTorchSTTBackend:
             progress_manager.mark_error(progress_model_name, str(e))
             task_manager.error_download(progress_model_name, str(e))
             raise
-    
+
     def unload_model(self):
         """Unload the model to free memory."""
         if self.model is not None:
@@ -547,12 +605,12 @@ class PyTorchSTTBackend:
             del self.processor
             self.model = None
             self.processor = None
-            
+
             if torch.cuda.is_available():
                 torch.cuda.empty_cache()
-            
+
             print("Whisper model unloaded")
-    
+
     async def transcribe(
         self,
         audio_path: str,
@@ -560,21 +618,21 @@ class PyTorchSTTBackend:
     ) -> str:
         """
         Transcribe audio to text.
-        
+
         Args:
             audio_path: Path to audio file
             language: Optional language hint (en or zh)
-            
+
         Returns:
             Transcribed text
         """
         await self.load_model_async(None)
-        
+
         def _transcribe_sync():
             """Run synchronous transcription in thread pool."""
             # Load audio
             audio, sr = load_audio(audio_path, sample_rate=16000)
-            
+
             # Process audio
             inputs = self.processor(
                 audio,
@@ -582,7 +640,7 @@ class PyTorchSTTBackend:
                 return_tensors="pt",
             )
             inputs = inputs.to(self.device)
-            
+
             # Set language if provided
             forced_decoder_ids = None
             if language:
@@ -592,21 +650,21 @@ class PyTorchSTTBackend:
                     language=language,
                     task="transcribe",
                 )
-            
+
             # Generate transcription
             with torch.no_grad():
                 predicted_ids = self.model.generate(
                     inputs["input_features"],
                     forced_decoder_ids=forced_decoder_ids,
                 )
-            
+
             # Decode
             transcription = self.processor.batch_decode(
                 predicted_ids,
                 skip_special_tokens=True,
             )[0]
-            
+
             return transcription.strip()
-        
+
         # Run blocking transcription in thread pool
         return await asyncio.to_thread(_transcribe_sync)

@@ -10,6 +10,13 @@ export function useProfiles() {
   });
 }
 
+export function useDeletedProfiles() {
+  return useQuery({
+    queryKey: ['profiles', 'deleted'],
+    queryFn: () => apiClient.listDeletedProfiles(),
+  });
+}
+
 export function useProfile(profileId: string) {
   return useQuery({
     queryKey: ['profiles', profileId],
@@ -48,9 +55,23 @@ export function useDeleteProfile() {
   const queryClient = useQueryClient();
 
   return useMutation({
-    mutationFn: (profileId: string) => apiClient.deleteProfile(profileId),
+    mutationFn: ({ profileId, permanent }: { profileId: string; permanent?: boolean }) =>
+      apiClient.deleteProfile(profileId, permanent),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles', 'deleted'] });
+    },
+  });
+}
+
+export function useRestoreProfile() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (profileId: string) => apiClient.restoreProfile(profileId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['profiles'] });
+      queryClient.invalidateQueries({ queryKey: ['profiles', 'deleted'] });
     },
   });
 }
